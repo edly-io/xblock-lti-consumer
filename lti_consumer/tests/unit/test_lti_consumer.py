@@ -7,7 +7,6 @@ from __future__ import absolute_import
 from datetime import timedelta
 
 import ddt
-import six
 from django.test.testcases import TestCase
 from django.utils import timezone
 from mock import Mock, PropertyMock, patch
@@ -88,7 +87,7 @@ class TestProperties(TestLtiConsumerXBlock):
         """
         Test `context_id` returns unicode course id
         """
-        self.assertEqual(self.xblock.context_id, six.text_type(self.xblock.course_id))  # pylint: disable=no-member
+        self.assertEqual(self.xblock.context_id, str(self.xblock.course_id))  # pylint: disable=no-member
 
     def test_validate(self):
         """

@@ -54,12 +54,10 @@ from __future__ import absolute_import, unicode_literals
 
 import logging
 import re
+import urllib
 from collections import namedtuple
 from importlib import import_module
 
-import six.moves.urllib.error
-import six.moves.urllib.parse
-import six
 import bleach
 from django.utils import timezone
 from webob import Response
@@ -476,7 +474,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
     def validate_field_data(self, validation, data):
         if not isinstance(data.custom_parameters, list):
             _ = self.runtime.service(self, "i18n").ugettext
-            validation.add(ValidationMessage(ValidationMessage.ERROR, six.text_type(
+            validation.add(ValidationMessage(ValidationMessage.ERROR, str(
                 _("Custom Parameters must be a list")
             )))
 
@@ -549,7 +547,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         context_id is an opaque identifier that uniquely identifies the context (e.g., a course)
         that contains the link being launched.
         """
-        return six.text_type(self.course_id)  # pylint: disable=no-member
+        return str(self.course_id)  # pylint: disable=no-member
 
     @property
     def role(self):
@@ -591,7 +589,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         user_id = self.runtime.anonymous_student_id
         if user_id is None:
             raise LtiError(self.ugettext("Could not get user id for current request"))
-        return six.text_type(six.moves.urllib.parse.quote(user_id))
+        return str(urllib.parse.quote(user_id))
 
     def get_icon_class(self):
         """ Returns the icon class """
@@ -631,7 +629,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         i4x-2-3-lti-31de800015cf4afb973356dbe81496df this part of resource_link_id:
         makes resource_link_id to be unique among courses inside same system.
         """
-        return six.text_type(six.moves.urllib.parse.quote(
+        return str(urllib.parse.quote(
             "{}-{}".format(self.runtime.hostname, self.location.html_id())  # pylint: disable=no-member
         ))
 
@@ -646,7 +644,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         This field is generally optional, but is required for grading.
         """
         return "{context}:{resource_link}:{user_id}".format(
-            context=six.moves.urllib.parse.quote(self.context_id),
+            context=urllib.parse.quote(self.context_id),
             resource_link=self.resource_link_id,
             user_id=self.user_id
         )
@@ -708,7 +706,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
                 if param_name not in LTI_PARAMETERS:
                     param_name = 'custom_' + param_name
 
-                custom_parameters[six.text_type(param_name)] = six.text_type(param_value)
+                custom_parameters[str(param_name)] = str(param_value)
         return custom_parameters
 
     @property

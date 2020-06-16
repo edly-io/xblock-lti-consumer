@@ -10,8 +10,6 @@ from datetime import timedelta
 
 from django.utils import timezone
 from mock import Mock, PropertyMock, patch
-from six import text_type
-import six
 
 from lti_consumer.exceptions import LtiError
 from lti_consumer.lti import LtiConsumer, parse_result_json
@@ -108,7 +106,7 @@ class TestParseResultJson(unittest.TestCase):
         """
         for error_inputs, error_message in INVALID_JSON_INPUTS:
             for error_input in error_inputs:
-                with six.assertRaisesRegex(self, LtiError, error_message):
+                with self.assertRaisesRegex(self, LtiError, error_message):
                     parse_result_json(error_input)
 
     def test_valid_json(self):

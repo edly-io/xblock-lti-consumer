@@ -4,7 +4,6 @@ Utility functions used within unit tests
 
 from __future__ import absolute_import
 
-import six
 from mock import Mock, PropertyMock, patch
 from webob import Request
 from workbench.runtime import WorkbenchRuntime
@@ -31,7 +30,7 @@ def make_xblock(xblock_name, xblock_cls, attributes):
         hostname='localhost',
     )
     xblock.course_id = 'course-v1:edX+DemoX+Demo_Course'
-    for key, value in six.iteritems(attributes):
+    for key, value in attributes.items():
         setattr(xblock, key, value)
     return xblock
 

@@ -8,11 +8,9 @@ https://www.imsglobal.org/specs/ltiomv1p0
 from __future__ import absolute_import, unicode_literals
 
 import logging
+import urllib
 from xml.sax.saxutils import escape
 
-import six.moves.urllib.error
-import six.moves.urllib.parse
-from six import text_type
 from lxml import etree
 from xblockutils.resources import ResourceLoader
 
@@ -188,7 +186,7 @@ class OutcomeService(object):  # pylint: disable=bad-option-value, useless-objec
             log.debug("[LTI]: %s", error_message)
             return response_xml_template.format(**failure_values)
 
-        real_user = self.xblock.runtime.get_real_user(six.moves.urllib.parse.unquote(sourced_id.split(':')[-1]))
+        real_user = self.xblock.runtime.get_real_user(urllib.parse.unquote(sourced_id.split(':')[-1]))
         if not real_user:  # that means we can't save to database, as we do not have real user id.
             failure_values['imsx_messageIdentifier'] = escape(imsx_message_identifier)
             failure_values['imsx_description'] = "User not found."

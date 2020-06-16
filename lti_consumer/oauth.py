@@ -7,10 +7,8 @@ from __future__ import absolute_import, unicode_literals
 import base64
 import hashlib
 import logging
+import urllib
 
-import six.moves.urllib.error
-import six.moves.urllib.parse
-import six
 from oauthlib import oauth1
 
 from .exceptions import LtiError
@@ -48,14 +46,14 @@ def get_oauth_request_signature(key, secret, url, headers, body):
     Returns:
         str: Authorization header for the OAuth signed request
     """
-    client = oauth1.Client(client_key=six.text_type(key), client_secret=six.text_type(secret))
+    client = oauth1.Client(client_key=str(key), client_secret=str(secret))
     try:
         # Add Authorization header which looks like:
         # Authorization: OAuth oauth_nonce="80966668944732164491378916897",
         # oauth_timestamp="1378916897", oauth_version="1.0", oauth_signature_method="HMAC-SHA1",
         # oauth_consumer_key="", oauth_signature="frVp4JuvT1mVXlxktiAUjQ7%2F1cw%3D"
         _, headers, _ = client.sign(
-            six.text_type(url.strip()),
+            str(url.strip()),
             http_method=u'POST',
             body=body,
             headers=headers
@@ -86,7 +84,7 @@ def verify_oauth_body_signature(request, lti_provider_secret, service_url):
     """
 
     headers = {
-        'Authorization': six.text_type(request.headers.get('Authorization')),
+        'Authorization': str(request.headers.get('Authorization')),
         'Content-Type': request.content_type,
     }
 
@@ -97,14 +95,14 @@ def verify_oauth_body_signature(request, lti_provider_secret, service_url):
     oauth_headers = dict(oauth_params)
     oauth_signature = oauth_headers.pop('oauth_signature')
     mock_request_lti_1 = SignedRequest(
-        uri=six.text_type(six.moves.urllib.parse.unquote(service_url)),
-        http_method=six.text_type(request.method),
+        uri=str(urllib.parse.unquote(service_url)),
+        http_method=str(request.method),
         params=list(oauth_headers.items()),
         signature=oauth_signature
     )
     mock_request_lti_2 = SignedRequest(
-        uri=six.text_type(six.moves.urllib.parse.unquote(request.url)),
-        http_method=six.text_type(request.method),
+        uri=str(urllib.parse.unquote(request.url)),
+        http_method=str(request.method),
         params=list(oauth_headers.items()),
         signature=oauth_signature
     )
@@ -126,7 +124,7 @@ def verify_oauth_body_signature(request, lti_provider_secret, service_url):
             "headers:%s url:%s method:%s",
             oauth_headers,
             service_url,
-            six.text_type(request.method)
+            str(request.method)
         )
         raise LtiError("OAuth signature verification has failed.")
 
@@ -148,18 +146,18 @@ def log_authorization_header(request, client_key, client_secret):
     """
     sha1 = hashlib.sha1()
     sha1.update(request.body)
-    oauth_body_hash = six.text_type(base64.b64encode(sha1.digest()))  # pylint: disable=too-many-function-args
+    oauth_body_hash = str(base64.b64encode(sha1.digest()))  # pylint: disable=too-many-function-args
     log.debug("[LTI] oauth_body_hash = %s", oauth_body_hash)
     client = oauth1.Client(client_key, client_secret)
     params = client.get_oauth_params(request)
     params.append((u'oauth_body_hash', oauth_body_hash))
     mock_request = SignedRequest(
-        uri=six.text_type(six.moves.urllib.parse.unquote(request.url)),
+        uri=str(urllib.parse.unquote(request.url)),
         headers=request.headers,
         body=u"",
         decoded_body=u"",
         oauth_params=params,
-        http_method=six.text_type(request.method),
+        http_method=str(request.method),
     )
     sig = client.get_oauth_signature(mock_request)
     mock_request.oauth_params.append((u'oauth_signature', sig))

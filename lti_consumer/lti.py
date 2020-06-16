@@ -9,10 +9,7 @@ from __future__ import absolute_import, unicode_literals
 
 import json
 import logging
-
-import six.moves.urllib.error
-import six.moves.urllib.parse
-from six import text_type
+import urllib
 
 from .exceptions import LtiError
 from .oauth import get_oauth_request_signature, verify_oauth_body_signature
@@ -204,7 +201,7 @@ class LtiConsumer(object):  # pylint: disable=bad-option-value, useless-object-i
         # so '='' becomes '%3D'.
         # We send form via browser, so browser will encode it again,
         # So we need to decode signature back:
-        oauth_signature[u'oauth_signature'] = six.moves.urllib.parse.unquote(
+        oauth_signature[u'oauth_signature'] = urllib.parse.unquote(
             oauth_signature[u'oauth_signature']
         )
 
