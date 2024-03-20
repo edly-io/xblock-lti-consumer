@@ -771,7 +771,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         if not user.opt_attrs["edx-platform.is_authenticated"]:
             raise LtiError(self.ugettext("Could not get user data for current request"))
 
-        return user.opt_attrs.get('edx-platform.user_role', 'student')
+        return 'staff' if user.opt_attrs.get('edx-platform.user_is_staff') else 'student'
 
     @property
     def course(self):
@@ -825,7 +825,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         It will return the proper anonymous ID in the LMS.
         """
         user_id = self.runtime.service(self, 'user').get_current_user().opt_attrs.get(
-            'edx-platform.anonymous_user_id', None)
+            'edx-platform.user_id', self.runtime.anonymous_student_id)
 
         if user_id is None:
             raise LtiError(self.ugettext("Could not get user id for current request"))
