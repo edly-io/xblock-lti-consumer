@@ -1474,6 +1474,15 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         """
         launch_url = self.launch_url
 
+        if (
+            hasattr(consumer, "lti_launch_url")
+            and consumer.lti_launch_url
+            and self.lti_version == "lti_1p1"
+        ):
+            launch_url = consumer.lti_launch_url
+        elif hasattr(consumer, "launch_url") and consumer.launch_url:
+            launch_url = consumer.launch_url
+
         # The lti_launch_url property only exists on the LtiConsumer1p1. The LtiConsumer1p3 does not have an
         # attribute with this name, so ensure that we're accessing it on the appropriate consumer class.
         if consumer and self.config_type in ("database", "external") and self.lti_version == "lti_1p1":
@@ -1567,7 +1576,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         # The "external" config_type is not supported for LTI 1.3, only LTI 1.1. Therefore, ensure that we define
         # the lti_1p3_launch_url using the LTI 1.3 consumer only for config_types that support LTI 1.3.
         # TODO: This needs to change when the LTI 1.3 support is added to the external config_type in the future.
-        if consumer and self.lti_version == "lti_1p3" and self.config_type == "database":
+        if consumer and self.lti_version == "lti_1p3" and consumer.launch_url:
             lti_1p3_launch_url = consumer.launch_url
 
         return lti_1p3_launch_url
@@ -1589,11 +1598,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         allowed_attributes = dict(bleach.sanitizer.ALLOWED_ATTRIBUTES, **{'img': ['src', 'alt']})
         sanitized_comment = bleach.clean(self.score_comment, tags=allowed_tags, attributes=allowed_attributes)
 
-        lti_consumer = None
-        # Don't pull from the Django database unless the config_type is one that stores the LTI configuration in the
-        # database.
-        if self.config_type in ("database", "external"):
-            lti_consumer = self._get_lti_consumer()
+        lti_consumer = self._get_lti_consumer()
 
         launch_url = self._get_lti_launch_url(lti_consumer)
         lti_block_launch_handler = self._get_lti_block_launch_handler()

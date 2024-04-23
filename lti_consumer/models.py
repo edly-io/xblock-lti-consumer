@@ -40,6 +40,70 @@ def generate_client_id():
     return str(uuid.uuid4())
 
 
+class LtiConfigurationManager(models.Manager):
+    """
+    Custom manager for LtiConfiguration to prioritize course-wide or
+    organization-wide configuration."
+    """
+
+    def get(self, *args, **kwargs):
+        fields_to_copy = [
+            "lti_1p1_launch_url",
+            "lti_1p1_client_key",
+            "lti_1p1_client_secret",
+            "lti_1p3_internal_private_key",
+            "lti_1p3_internal_private_key_id",
+            "lti_1p3_internal_public_jwk",
+            "lti_1p3_client_id",
+            "lti_1p3_oidc_url",
+            "lti_1p3_launch_url",
+            "lti_1p3_tool_public_key",
+            "lti_1p3_tool_keyset_url",
+            "lti_advantage_deep_linking_enabled",
+            "lti_advantage_deep_linking_launch_url",
+        ]
+
+        block_lti_configuration = super().get(*args, **kwargs)
+
+        if block_lti_configuration.location is None or "organization_slug" in kwargs:
+            return block_lti_configuration
+
+        new_kwargs = {
+            "course_key": block_lti_configuration.location.course_key,
+            "version": block_lti_configuration.version,
+            "organization_slug": block_lti_configuration.location.course_key.org,
+        }
+
+        try:
+            filter_configuration = super().get(*args, **new_kwargs)
+
+            for field_name in fields_to_copy:
+                setattr(
+                    block_lti_configuration,
+                    field_name,
+                    getattr(filter_configuration, field_name),
+                )
+            block_lti_configuration.external_id = LtiConfiguration.CONFIG_EXTERNAL
+            return block_lti_configuration
+
+        except LtiConfiguration.DoesNotExist:
+            new_kwargs["course_key"] = None
+            try:
+                filter_configuration = super().get(*args, **new_kwargs)
+
+                for field_name in fields_to_copy:
+                    setattr(
+                        block_lti_configuration,
+                        field_name,
+                        getattr(filter_configuration, field_name),
+                    )
+                block_lti_configuration.external_id = LtiConfiguration.CONFIG_EXTERNAL
+                return block_lti_configuration
+
+            except LtiConfiguration.DoesNotExist:
+                return block_lti_configuration
+
+
 class LtiConfiguration(models.Model):
     """
     Model to store LTI Configuration for LTI 1.1 and 1.3.
@@ -232,6 +296,17 @@ class LtiConfiguration(models.Model):
         help_text='Enable LTI Proctoring Services',
     )
 
+    course_key = CourseKeyField(
+        max_length=255, db_index=True, default=None, blank=True, null=True,
+        help_text='Enable these settings course wide'
+    )
+    organization_slug = models.CharField(
+        max_length=50, db_index=True, default=None, blank=True, null=True,
+        help_text='Enable these settings organization wide'
+    )
+
+    objects = LtiConfigurationManager()
+
     def clean(self):
         if self.config_store == self.CONFIG_ON_XBLOCK and self.location is None:
             raise ValidationError({
@@ -319,7 +394,12 @@ class LtiConfiguration(models.Model):
         Return a class of LTI 1.1 consumer.
         """
         # If LTI configuration is stored in the XBlock.
-        if self.config_store == self.CONFIG_ON_XBLOCK:
+        if self.external_id == LtiConfiguration.CONFIG_EXTERNAL:
+            key = self.lti_1p1_client_key
+            secret = self.lti_1p1_client_secret
+            launch_url = self.lti_1p1_launch_url
+
+        elif self.config_store == self.CONFIG_ON_XBLOCK:
             block = compat.load_enough_xblock(self.location)
             key, secret = block.lti_provider_key_secret
             launch_url = block.launch_url
@@ -352,6 +432,9 @@ class LtiConfiguration(models.Model):
         """
         Return whether LTI 1.3 Advantage Deep Linking is enabled.
         """
+        if self.external_id == LtiConfiguration.CONFIG_EXTERNAL:
+            return self.lti_advantage_deep_linking_enabled
+
         if self.config_store == self.CONFIG_EXTERNAL:
             # TODO: Add support for CONFIG_EXTERNAL for LTI 1.3.
             raise NotImplementedError("CONFIG_EXTERNAL is not supported for LTI 1.3 Advantage services: %s")
@@ -365,6 +448,9 @@ class LtiConfiguration(models.Model):
         """
         Return the LTI 1.3 Advantage Deep Linking launch URL.
         """
+        if self.external_id == LtiConfiguration.CONFIG_EXTERNAL:
+            return self.lti_advantage_deep_linking_launch_url
+
         if self.config_store == self.CONFIG_EXTERNAL:
             # TODO: Add support for CONFIG_EXTERNAL for LTI 1.3.
             raise NotImplementedError("CONFIG_EXTERNAL is not supported for LTI 1.3 Advantage services: %s")
@@ -484,7 +570,23 @@ class LtiConfiguration(models.Model):
         if self.lti_1p3_proctoring_enabled and self.config_store == self.CONFIG_ON_DB:
             consumer_class = LtiProctoringConsumer
 
-        if self.config_store == self.CONFIG_ON_XBLOCK:
+        if self.external_id == LtiConfiguration.CONFIG_EXTERNAL:
+            consumer = consumer_class(
+                iss=get_lti_api_base(),
+                lti_oidc_url=self.lti_1p3_oidc_url,
+                lti_launch_url=self.lti_1p3_launch_url,
+                client_id=self.lti_1p3_client_id,
+                # Deployment ID hardcoded to 1 since
+                # we're not using multi-tenancy.
+                deployment_id="1",
+                # XBlock Private RSA Key
+                rsa_key=self.lti_1p3_private_key,
+                rsa_key_id=self.lti_1p3_private_key_id,
+                # LTI 1.3 Tool key/keyset url
+                tool_key=self.lti_1p3_tool_public_key,
+                tool_keyset_url=self.lti_1p3_tool_keyset_url,
+            )
+        elif self.config_store == self.CONFIG_ON_XBLOCK:
             block = compat.load_enough_xblock(self.location)
 
             consumer = consumer_class(
