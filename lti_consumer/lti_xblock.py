@@ -161,7 +161,6 @@ class LaunchTarget:
 
 
 @XBlock.needs('i18n')
-@XBlock.needs('rebind_user')
 @XBlock.wants('user')
 @XBlock.wants('settings')
 @XBlock.wants('lti-configuration')
@@ -1365,7 +1364,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         Returns:
             dict:  response to this request as dictated by the LtiConsumer
         """
-        self.runtime.service(self, 'rebind_user').rebind_noauth_module_to_user(self, user)
+        self.runtime.rebind_noauth_module_to_user(self, user)
         args = []
         if self.module_score:
             args.extend([self.module_score, self.score_comment])
@@ -1453,7 +1452,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         else:
             scaled_score = None
 
-        self.runtime.service(self, 'rebind_user').rebind_noauth_module_to_user(self, user)
+        self.runtime.rebind_noauth_module_to_user(self, user)
 
         # have to publish for the progress page...
         self.runtime.publish(
