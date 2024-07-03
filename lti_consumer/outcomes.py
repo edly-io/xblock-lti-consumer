@@ -184,7 +184,7 @@ class OutcomeService:
             return response_xml_template.format(**failure_values)
 
         user_id = unquote(sourced_id.split(':')[-1])
-        real_user = self.xblock.get_lti_1p1_user_from_user_id(user_id)
+        real_user = self.xblock.runtime.get_real_user(user_id)
 
         if not real_user:  # that means we can't save to database, as we do not have real user id.
             failure_values['imsx_messageIdentifier'] = escape(imsx_message_identifier)

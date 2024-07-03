@@ -823,9 +823,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
         This defaults to 'student' when testing in studio.
         It will return the proper anonymous ID in the LMS.
         """
-        user_id = self.runtime.service(self, 'user').get_current_user().opt_attrs.get(
-            'edx-platform.user_id', self.runtime.anonymous_student_id)
-
+        user_id = self.runtime.anonymous_student_id
         if user_id is None:
             raise LtiError(self.ugettext("Could not get user id for current request"))
         return str(user_id)
