@@ -25,7 +25,7 @@ class UsageKeyField(serializers.Field):
         """
         Convert a usage key to unicode.
         """
-        log.info(f"here to_representation -- 1012 {data}")
+        log.info(f"here to_representation -- 1012 {value}")
         return str(value)
 
     def to_internal_value(self, data):
