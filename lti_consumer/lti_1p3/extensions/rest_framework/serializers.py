@@ -25,6 +25,7 @@ class UsageKeyField(serializers.Field):
         """
         Convert a usage key to unicode.
         """
+        log.info(f"here to_representation -- 1012 {data}")
         return str(value)
 
     def to_internal_value(self, data):
@@ -32,6 +33,7 @@ class UsageKeyField(serializers.Field):
         Convert unicode to a usage key.
         """
         try:
+            log.info(f"here to_internal_value -- 1012 {data}")
             return UsageKey.from_string(data)
         except InvalidKeyError as err:
             raise serializers.ValidationError(f"Invalid usage key: {data!r}") from err

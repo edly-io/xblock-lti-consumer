@@ -93,6 +93,7 @@ def public_keyset_endpoint(request, usage_id=None, lti_config_id=None):
     try:
         if usage_id:
             print('here--1012 ', usage_id)
+            log.info(f"here-- 1012 {usage_id}")
             lti_config = LtiConfiguration.objects.get(location=UsageKey.from_string(usage_id))
         elif lti_config_id:
             lti_config = LtiConfiguration.objects.get(config_id=lti_config_id)
@@ -343,6 +344,7 @@ def access_token_endpoint(request, lti_config_id=None, usage_id=None):
         if lti_config_id:
             lti_config = LtiConfiguration.objects.get(config_id=lti_config_id)
         else:
+            log.info(f"here12-- 1012 {usage_id}")
             usage_key = UsageKey.from_string(usage_id)
             lti_config = LtiConfiguration.objects.get(location=usage_key)
     except LtiConfiguration.DoesNotExist as exc:
@@ -564,6 +566,8 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
             lti_configuration=lti_configuration
         )
         log.info("lineitem-get-data-123 %s", data)
+        import pdb;
+        pdb.set_trace()
         return data
 
     def perform_create(self, serializer):
