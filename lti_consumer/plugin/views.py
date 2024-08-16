@@ -566,8 +566,8 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
             lti_configuration=lti_configuration
         )
         log.info("lineitem-get-data-123 %s", data)
-        import pdb;
-        pdb.set_trace()
+        # import pdb;
+        # pdb.set_trace()
         return data
 
     def perform_create(self, serializer):
