@@ -9,6 +9,8 @@ from opaque_keys.edx.keys import UsageKey
 
 from lti_consumer.models import LtiAgsLineItem, LtiAgsScore
 from lti_consumer.lti_1p3.constants import LTI_1P3_CONTEXT_ROLE_MAP
+import logging
+log = logging.getLogger(__name__)
 
 
 class UsageKeyField(serializers.Field):
@@ -90,6 +92,11 @@ class LtiAgsLineItemSerializer(serializers.ModelSerializer):
             'startDateTime',
             'endDateTime',
         )
+    
+    def to_internal_value(self, data):
+        # Log the raw data before validation
+        log.info(f"Data before validation 123: {data}")
+        return super().to_internal_value(data)
 
 
 class LtiAgsScoreSerializer(serializers.ModelSerializer):

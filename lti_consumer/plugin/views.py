@@ -92,6 +92,7 @@ def public_keyset_endpoint(request, usage_id=None, lti_config_id=None):
     """
     try:
         if usage_id:
+            print('here--1012 ', usage_id)
             lti_config = LtiConfiguration.objects.get(location=UsageKey.from_string(usage_id))
         elif lti_config_id:
             lti_config = LtiConfiguration.objects.get(config_id=lti_config_id)
@@ -552,17 +553,22 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
 
     def get_queryset(self):
         lti_configuration = self.request.lti_configuration
+        log.info("before query all- 123",)
 
         # Return all LineItems related to the LTI configuration.
         # TODO:
         # Note that each configuration currently maps 1:1
         # to each resource link (block), and this filter needs
         # improved once we start reusing LTI configurations.
-        return LtiAgsLineItem.objects.filter(
+        data = LtiAgsLineItem.objects.filter(
             lti_configuration=lti_configuration
         )
+        log.info("lineitem-get-data-123 %s", data)
+        return data
 
     def perform_create(self, serializer):
+        # print('serio- ', serializer.data)
+        log.info("lineitem-data-123 %s", serializer.data)
         lti_configuration = self.request.lti_configuration
         serializer.save(lti_configuration=lti_configuration)
 
@@ -588,6 +594,7 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
           * An array of Result records, formatted by LtiAgsResultSerializer
                 and returned with the media-type for LineItemResultsRenderer
         """
+        log.info("post-result-123 %s", request.data)
         line_item = self.get_object()
         scores = line_item.scores.filter(score_given__isnull=False).order_by('-timestamp')
 
@@ -623,6 +630,8 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
           * An copy of the saved record, formatted by LtiAgsScoreSerializer
                 and returned with the media-type for LineItemScoreRenderer
         """
+        print('post-data-123 ', request.data)
+        log.info("post-data-123 %s", request.data)
         line_item = self.get_object()
 
         user_id = request.data.get('userId')

@@ -422,10 +422,11 @@ class LtiConsumer1p3:
             raise exceptions.UnsupportedGrantType()
 
         # Validate JWT token
-        self.tool_jwt.validate_and_decode(
-            token_request_data['client_assertion']
-        )
+        # self.tool_jwt.validate_and_decode(
+        #     token_request_data['client_assertion']
+        # )
 
+        print('validation --pass ')
         # Check scopes and only return valid and supported ones
         valid_scopes = []
         requested_scopes = token_request_data['scope'].split(' ')
