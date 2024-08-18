@@ -575,6 +575,14 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         log.info("lineitem-data-123 %s", serializer.data)
         lti_configuration = self.request.lti_configuration
         serializer.save(lti_configuration=lti_configuration)
+    
+    # @action(detail=True, methods=['get'])
+    # def retrieve(self, request, pk=None, lti_config_id=None):
+    #     print('ola here')
+    #     import pdb;
+    #     pdb.set_trace()
+    #     return super().retrieve(request, pk=pk)
+    #     return 'ola'
 
     @action(
         detail=True,

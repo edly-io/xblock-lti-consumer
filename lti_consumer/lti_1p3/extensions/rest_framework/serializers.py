@@ -73,6 +73,8 @@ class LtiAgsLineItemSerializer(serializers.ModelSerializer):
 
     def get_id(self, obj):
         request = self.context.get('request')
+        log.info(f"id -- 999: {obj.lti_configuration.id}")
+        log.info(f"pk -- 999: {obj.lti_configuration.id}")
         return reverse(
             'lti_consumer:lti-ags-view-detail',
             kwargs={
