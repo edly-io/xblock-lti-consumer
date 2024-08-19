@@ -555,7 +555,12 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
 
     def get_queryset(self):
         lti_configuration = self.request.lti_configuration
-        log.info("before query all- 123",)
+        log.info("method-1234 ", self.request.method)
+        log.info("body-1234 ", self.request.body)
+        log.info("get-1234 ", self.request.GET)
+
+        print("method-1234 ", self.request.method)
+        print("body-1234 ", self.request.body)
 
         # Return all LineItems related to the LTI configuration.
         # TODO:
@@ -570,23 +575,15 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         # pdb.set_trace()
         return data
 
-    def create(self, request, *args, **kwargs):
-        log.info("create-123-> %s", request.data)
-        return super().create(self, request, *args, **kwargs)
+    # def create(self, request, *args, **kwargs):
+    #     log.info("create-123-> %s", request)
+    #     return super().create(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         # print('serio- ', serializer.data)
         log.info("lineitem-data-123 %s", serializer.data)
         lti_configuration = self.request.lti_configuration
         serializer.save(lti_configuration=lti_configuration)
-    
-    # @action(detail=True, methods=['get'])
-    # def retrieve(self, request, pk=None, lti_config_id=None):
-    #     print('ola here')
-    #     import pdb;
-    #     pdb.set_trace()
-    #     return super().retrieve(request, pk=pk)
-    #     return 'ola'
 
     @action(
         detail=True,

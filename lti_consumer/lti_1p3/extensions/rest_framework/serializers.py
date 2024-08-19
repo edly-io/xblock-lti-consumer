@@ -72,17 +72,15 @@ class LtiAgsLineItemSerializer(serializers.ModelSerializer):
     endDateTime = serializers.DateTimeField(required=False, source='end_date_time')
 
     def get_id(self, obj):
-        request = self.context.get('request')
-        log.info(f"id -- 999: {obj.lti_configuration.id}")
-        log.info(f"pk -- 999: {obj.lti_configuration.id}")
-        return reverse(
-            'lti_consumer:lti-ags-view-detail',
-            kwargs={
-                'lti_config_id': obj.lti_configuration.id,
-                'pk': obj.pk
-            },
-            request=request,
-        )
+            request = self.context.get('request')
+            return reverse(
+                'lti_consumer:lti-ags-view-detail',
+                kwargs={
+                    'lti_config_id': obj.lti_configuration.id,
+                    'pk': obj.pk
+                },
+                request=request,
+            )
 
     class Meta:
         model = LtiAgsLineItem
