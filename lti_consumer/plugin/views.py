@@ -570,6 +570,10 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         # pdb.set_trace()
         return data
 
+    def create(self, request, *args, **kwargs):
+        log.info("create-123-> %s", request.data)
+        return super().create(self, request, *args, **kwargs)
+    
     def perform_create(self, serializer):
         # print('serio- ', serializer.data)
         log.info("lineitem-data-123 %s", serializer.data)
