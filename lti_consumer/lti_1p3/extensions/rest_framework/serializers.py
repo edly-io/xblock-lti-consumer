@@ -72,15 +72,15 @@ class LtiAgsLineItemSerializer(serializers.ModelSerializer):
     endDateTime = serializers.DateTimeField(required=False, source='end_date_time')
 
     def get_id(self, obj):
-            request = self.context.get('request')
-            return reverse(
-                'lti_consumer:lti-ags-view-detail',
-                kwargs={
-                    'lti_config_id': obj.lti_configuration.id,
-                    'pk': obj.pk
-                },
-                request=request,
-            )
+        request = self.context.get('request')
+        return reverse(
+            'lti_consumer:lti-ags-view-detail',
+            kwargs={
+                'lti_config_id': obj.lti_configuration.id,
+                'pk': obj.pk
+            },
+            request=request,
+        )
 
     class Meta:
         model = LtiAgsLineItem
@@ -94,11 +94,16 @@ class LtiAgsLineItemSerializer(serializers.ModelSerializer):
             'startDateTime',
             'endDateTime',
         )
-    
+
     def to_internal_value(self, data):
         # Log the raw data before validation
         log.info(f"Data before validation 123: {data}")
         return super().to_internal_value(data)
+    
+    def validate(self, attrs):
+        # Log the data just before validation
+        log.info(f"validation9876: {attrs}")
+        return super().validate(attrs)
 
 
 class LtiAgsScoreSerializer(serializers.ModelSerializer):
