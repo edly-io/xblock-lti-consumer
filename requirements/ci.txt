@@ -334,7 +334,7 @@ pygments==2.19.1
     #   rich
 pyjwkest==1.4.2
     # via -r requirements/test.txt
-pyjwt==2.10.1
+pyjwt==2.6.0
     # via -r requirements/test.txt
 pylint==3.3.4
     # via

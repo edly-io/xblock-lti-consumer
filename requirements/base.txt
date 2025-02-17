@@ -117,7 +117,7 @@ pycryptodomex==3.21.0
     #   pyjwkest
 pyjwkest==1.4.2
     # via -r requirements/base.in
-pyjwt==2.10.1
+pyjwt==2.6.0
     # via -r requirements/base.in
 pymongo==4.11.1
     # via edx-opaque-keys
