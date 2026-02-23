@@ -1693,7 +1693,8 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
             user_id=self.lms_user_id,
             user_role=self._get_lti_1p3_user_role(),
             config_id=config_id,
-            resource_link_id=str(location),
+            # resource_link_id is used in the url params by the tool, so it should be url encoded.
+            resource_link_id=urllib.parse.quote(str(location)),
             external_user_id=self.external_user_id,
             preferred_username=username,
             name=full_name,
