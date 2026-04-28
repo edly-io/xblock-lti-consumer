@@ -1673,7 +1673,7 @@ class LtiConsumerXBlock(StudioEditableXBlockMixin, XBlock):
             preferred_username=username,
             name=full_name,
             email=email,
-            launch_presentation_document_target="iframe",
+            launch_presentation_document_target="window" if self.launch_target == LaunchTarget.NEW_WINDOW.value else "iframe",
             context_id=course_key,
             context_type=["course_offering"],
             context_title=self.get_context_title(),
