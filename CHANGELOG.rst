@@ -16,8 +16,10 @@ Please See the `releases tab <https://github.com/openedx/xblock-lti-consumer/rel
 Unreleased
 ~~~~~~~~~~
 
+* Backport (Ulmo): parse ``resource_link_id`` correctly and allow programmatic AGS line-item creation when ``resource_id`` is absent (PR #609; issue #605).
 * Backport (Ulmo): pass context claim & use external config ``deployment_id`` in deep linking launch (PR #612; issues #611, #610).
 * Backport (Ulmo): AGS results endpoint trailing-slash compatibility, allow blank AGS score ``comment``, correct deep linking launch ``target_link_uri``, and use correct key/secret pair for LTI 1.1 grade passback (PR #643; issues #633, #628, #637, #620).
+* Backport (Ulmo): map Open edX course and discussion roles to standard LTI context roles for launches and NRPS memberships (PR #645; issue #618).
 
 9.14.3 - 2025-10-22
 -------------------
