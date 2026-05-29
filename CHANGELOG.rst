@@ -20,6 +20,9 @@ Unreleased
 * Backport (Ulmo): pass context claim & use external config ``deployment_id`` in deep linking launch (PR #612; issues #611, #610).
 * Backport (Ulmo): AGS results endpoint trailing-slash compatibility, allow blank AGS score ``comment``, correct deep linking launch ``target_link_uri``, and use correct key/secret pair for LTI 1.1 grade passback (PR #643; issues #633, #628, #637, #620).
 * Backport (Ulmo): map Open edX course and discussion roles to standard LTI context roles for launches and NRPS memberships (PR #645; issue #618).
+* Backport (Ulmo): derive the effective LTI version from reusable external configurations, preventing version
+  conflicts and launch-time attribute errors (PR #663; issue #657). The Studio-side field syncing was re-implemented
+  against this release's Studio editor, since the upstream change targets the newer editor introduced by PR #650.
 
 9.14.3 - 2025-10-22
 -------------------

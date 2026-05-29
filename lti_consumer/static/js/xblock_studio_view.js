@@ -24,6 +24,81 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
         "lti_1p3_enable_nrps"
     ];
 
+    // Cache of external config IDs to their resolved LTI version (id -> version|null).
+    const versionCache = {};
+    let versionRequestId = 0;
+
+    /**
+     * Resolve the LTI version of an external (reusable) configuration via the
+     * server handler, caching results to avoid redundant requests. Stale
+     * responses from superseded requests are discarded.
+     */
+    function resolveExternalConfigVersion(configId, callback) {
+        if (Object.prototype.hasOwnProperty.call(versionCache, configId)) {
+            callback(versionCache[configId]);
+            return;
+        }
+
+        const requestId = ++versionRequestId;
+        const handlerUrl = runtime.handlerUrl(element, 'resolve_external_config_version');
+
+        $.ajax({
+            type: "POST",
+            url: handlerUrl,
+            data: JSON.stringify({ config_id: configId }),
+            dataType: "json",
+            contentType: "application/json",
+            global: false,
+            success: function (response) {
+                if (requestId !== versionRequestId) return;
+                versionCache[configId] = response.found ? response.version : null;
+                callback(versionCache[configId]);
+            },
+            error: function () {
+                if (requestId !== versionRequestId) return;
+                versionCache[configId] = null;
+                callback(null);
+            }
+        });
+    }
+
+    /**
+     * Return the effective LTI version.
+     *
+     * When the config type is `external`, the version is determined by the
+     * reusable configuration rather than by the block's own lti_version field.
+     * Falls back to the block's stored lti_version when the external config's
+     * version has not been resolved.
+     */
+    function getEffectiveVersion() {
+        const selectedVersion = $(element)
+            .find('#xb-field-edit-lti_version')
+            .children("option:selected")
+            .val();
+        const configType = $(element).find('#xb-field-edit-config_type').val();
+
+        if (configType !== "external") {
+            return selectedVersion;
+        }
+
+        const externalConfig = $(element).find('#xb-field-edit-external_config').val();
+
+        // The saved external config already has a server-resolved version.
+        if (externalConfig === data.currentExternalConfig && data.effectiveLtiVersion) {
+            return data.effectiveLtiVersion;
+        }
+
+        // A version resolved earlier in this editing session.
+        if (externalConfig && Object.prototype.hasOwnProperty.call(versionCache, externalConfig)) {
+            if (versionCache[externalConfig] !== null) {
+                return versionCache[externalConfig];
+            }
+        }
+
+        // Unknown or unresolved - fall back to the block's stored version.
+        return data.rawLtiVersion || selectedVersion;
+    }
+
     /**
      * Query a field using the `data-field-name` attribute and hide/show it.
      *
@@ -46,8 +121,7 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
      * Return fields that should be hidden based on the selected lti version.
      */
     function getFieldsToHideForLtiVersion() {
-        const ltiVersionField = $(element).find('#xb-field-edit-lti_version');
-        const selectedVersion = ltiVersionField.children("option:selected").val();
+        const selectedVersion = getEffectiveVersion();
         const fieldsToHide = [];
 
         if (selectedVersion === undefined || selectedVersion === "lti_1p1") {
@@ -157,6 +231,12 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
         for (const field of hiddenFields) {
             toggleFieldVisibility(field, false);
         }
+
+        // The lti_version field is not part of configFields, so toggle it explicitly.
+        // With a reusable (external) configuration the version is determined by that
+        // configuration, so hide the block-level selector to avoid a version conflict.
+        const configType = $(element).find('#xb-field-edit-config_type').val();
+        toggleFieldVisibility("lti_version", configType !== "external");
     }
 
     // Call once component is instanced to hide fields
@@ -174,5 +254,21 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
 
     $(element).find('#xb-field-edit-config_type').bind('change', function () {
         toggleLtiFields();
+    });
+
+    // Bind to onChange method of the external config ID field. Show the UI with the
+    // current fallback immediately, then re-evaluate once the version is resolved.
+    $(element).find('#xb-field-edit-external_config').bind('change', function () {
+        const configId = $(this).val();
+
+        toggleLtiFields();
+
+        if (!configId || configId === data.currentExternalConfig) {
+            return;
+        }
+
+        resolveExternalConfigVersion(configId, function () {
+            toggleLtiFields();
+        });
     });
 }
