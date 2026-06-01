@@ -23,6 +23,7 @@ Unreleased
 * Backport (Ulmo): derive the effective LTI version from reusable external configurations, preventing version
   conflicts and launch-time attribute errors (PR #663; issue #657). The Studio-side field syncing was re-implemented
   against this release's Studio editor, since the upstream change targets the newer editor introduced by PR #650.
+* Backport (Ulmo): post deep linking authentication responses to the tool-provided ``redirect_uri`` instead of the selector URL (PR #654; issue #653).
 
 9.14.3 - 2025-10-22
 -------------------
