@@ -4,7 +4,11 @@ Django REST Framework extensions for LTI 1.3 & LTI Advantage implementation.
 Implements a custom authorization classes to be used by any of the
 LTI Advantage extensions.
 """
+import logging
+
 from rest_framework import permissions
+
+log = logging.getLogger(__name__)
 
 
 class LTIBasePermissions(permissions.BasePermission):
@@ -21,12 +25,30 @@ class LTIBasePermissions(permissions.BasePermission):
         # the Authentication class, so we assume it's a sane value.
         auth_token = request.headers['Authorization'].split()[1]
 
+        lti_config_id = view.kwargs.get('lti_config_id')
         scopes = self.get_permission_scopes(request, view)
 
-        if scopes:
-            return request.lti_consumer.check_token(auth_token, scopes)
+        if not scopes:
+            log.warning(
+                'LTI API request denied for lti_config_id=%s: no scopes are configured for action %r on %s, '
+                'so access cannot be granted.',
+                lti_config_id,
+                getattr(view, 'action', None),
+                type(self).__name__,
+            )
+            return False
 
-        return False
+        has_scope = request.lti_consumer.check_token(auth_token, scopes)
+        if not has_scope:
+            log.warning(
+                'LTI API request denied for lti_config_id=%s: access token is missing one of the required scopes '
+                '%s for action %r on %s.',
+                lti_config_id,
+                scopes,
+                getattr(view, 'action', None),
+                type(self).__name__,
+            )
+        return has_scope
 
     def get_permission_scopes(self, request, view):
         """

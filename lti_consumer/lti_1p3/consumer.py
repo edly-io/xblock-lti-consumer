@@ -552,7 +552,15 @@ class LtiConsumer1p3:
         # If `allowed_scopes` is empty, return true (just check
         # token validity).
         if allowed_scopes:
-            return any(scope in allowed_scopes for scope in token_scopes)
+            has_scope = any(scope in allowed_scopes for scope in token_scopes)
+            if not has_scope:
+                log.warning(
+                    'LTI 1.3 access token scope check failed: token grants scopes %s but the request requires one '
+                    'of %s.',
+                    token_scopes,
+                    allowed_scopes,
+                )
+            return has_scope
 
         return True
 

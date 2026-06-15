@@ -744,6 +744,24 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         lti_configuration = self.request.lti_configuration
         serializer.save(lti_configuration=lti_configuration)
+        log.info(
+            'LTI AGS LineItem created for lti_config_id=%s resource_link_id=%s resource_id=%s.',
+            self.kwargs.get('lti_config_id'),
+            serializer.validated_data.get('resource_link_id'),
+            serializer.validated_data.get('resource_id'),
+        )
+
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Http404:
+            log.warning(
+                'LTI AGS request denied (404) for lti_config_id=%s lineitem pk=%s: the LineItem does not exist or '
+                'is not owned by this LTI configuration.',
+                self.kwargs.get('lti_config_id'),
+                self.kwargs.get('pk'),
+            )
+            raise
 
     @action(
         detail=True,
@@ -817,6 +835,17 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save(line_item=line_item)
+        log.info(
+            'LTI AGS score accepted for lti_config_id=%s lineitem_id=%s user_id=%s: scoreGiven=%s scoreMaximum=%s '
+            'activityProgress=%s gradingProgress=%s.',
+            self.kwargs.get('lti_config_id'),
+            line_item.id,
+            user_id,
+            serializer.data.get('scoreGiven'),
+            serializer.data.get('scoreMaximum'),
+            serializer.data.get('activityProgress'),
+            serializer.data.get('gradingProgress'),
+        )
         headers = self.get_success_headers(serializer.data)
         return Response(
             serializer.data,
