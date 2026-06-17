@@ -91,7 +91,12 @@ def create_lti_1p3_passport(sender, instance: LtiConfiguration, **kwargs):  # py
     instance.get_or_create_lti_1p3_passport()
 
 
-@receiver(SignalHandler.pre_item_delete if SignalHandler else [])
+# ``SignalHandler.pre_item_delete`` was removed in newer Open edX releases (e.g. Ulmo) in favor of
+# the ``XBLOCK_DELETED``/``LIBRARY_BLOCK_DELETED`` openedx-events handled below. ``SignalHandler`` may
+# still exist as a class while no longer exposing this attribute, so we resolve it defensively: when the
+# signal is unavailable ``getattr`` returns ``[]``, which makes ``@receiver`` a no-op instead of raising
+# ``AttributeError`` at import time.
+@receiver(getattr(SignalHandler, 'pre_item_delete', []))
 def delete_child_lti_configurations(**kwargs):
     """
     Delete lti configuration from database for this block children.
