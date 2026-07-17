@@ -21,6 +21,9 @@ Unreleased
 * Backport (Ulmo): update LTI 1.3 launch and NRPS role mapping to use context role URIs, include supported forum roles like ``Community TA`` and ``Group Moderator`` in launches and NRPS membership responses, and add ADR documenting the updated role mapping behavior (PR #645).
 * Backport (Ulmo): fix LTI 1.3 deep linking launches to POST the ``id_token`` to the tool-provided
   ``redirect_uri`` rather than the platform-configured ``deep_linking_launch_url`` (PR #654).
+* Backport (Ulmo): add pagination support to the NRPS ``/context_membership`` endpoint, accepting
+  ``limit`` and ``page`` query parameters with RFC 8288 ``Link`` headers for continuation, and fix
+  unstable member ordering across pages (PR #670).
 
 9.14.3 - 2025-10-22
 -------------------
