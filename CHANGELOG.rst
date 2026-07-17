@@ -24,6 +24,7 @@ Unreleased
   conflicts and launch-time attribute errors (PR #663; issue #657). The Studio-side field syncing was re-implemented
   against this release's Studio editor, since the upstream change targets the newer editor introduced by PR #650.
 * Backport (Ulmo): post deep linking authentication responses to the tool-provided ``redirect_uri`` instead of the selector URL (PR #654; issue #653).
+* Backport (Ulmo): add stable NRPS pagination via ``limit``/``page`` parameters with ``rel="next"`` Link headers (PR #670; issue #669).
 
 9.14.3 - 2025-10-22
 -------------------
