@@ -269,6 +269,40 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
         # Set sub and roles claims.
         user_id = launch_data.external_user_id if launch_data.external_user_id else launch_data.user_id
         user_role = launch_data.user_role
+
+        # custom_parameters is documented as a dict, but callers (and existing tests) also pass a
+        # list of "key=value" strings, so extract just the parameter names defensively either way.
+        custom_parameters = launch_data.custom_parameters
+        if isinstance(custom_parameters, dict):
+            custom_parameter_names = list(custom_parameters.keys())
+        elif isinstance(custom_parameters, (list, tuple)):
+            custom_parameter_names = [
+                param.split('=', 1)[0] for param in custom_parameters
+                if isinstance(param, str) and '=' in param
+            ]
+        else:
+            custom_parameter_names = []
+
+        log.info(
+            'LTI 1.3 launch data retrieved for lti_message_hint=%s: config_id=%s resource_link_id=%s '
+            'message_type=%s user_id=%s user_role=%s context_id=%s context_type=%s has_name=%s '
+            'has_email=%s has_preferred_username=%s custom_parameter_names=%s '
+            'deep_linking_content_item_id=%s.',
+            lti_message_hint,
+            config_id,
+            launch_data.resource_link_id,
+            launch_data.message_type,
+            user_id,
+            user_role,
+            launch_data.context_id,
+            launch_data.context_type,
+            bool(launch_data.name),
+            bool(launch_data.email),
+            bool(launch_data.preferred_username),
+            custom_parameter_names,
+            launch_data.deep_linking_content_item_id,
+        )
+
         lti_consumer.set_user_data(
             user_id=user_id,
             role=user_role,
@@ -315,6 +349,23 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
 
         # Retrieve preflight response.
         preflight_response = request_params.dict()
+
+        log.info(
+            # state/nonce are single-use, tool-generated correlation values (not credentials) —
+            # logging them lets a specific launch attempt be matched against the tool's own logs.
+            'LTI 1.3 authentication request (preflight response) received from tool for config_id=%s: '
+            'redirect_uri=%s client_id=%s state=%s nonce=%s response_type=%s response_mode=%s '
+            'scope=%s prompt=%s.',
+            config_id,
+            preflight_response.get('redirect_uri'),
+            preflight_response.get('client_id'),
+            preflight_response.get('state'),
+            preflight_response.get('nonce'),
+            preflight_response.get('response_type'),
+            preflight_response.get('response_mode'),
+            preflight_response.get('scope'),
+            preflight_response.get('prompt'),
+        )
 
         # Set LTI Launch URL.
         context.update({'launch_url': preflight_response.get("redirect_uri")})
@@ -390,6 +441,16 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
             'launch_url': context['launch_url']
         }
         track_event('xblock.launch_request', event)
+
+        log.info(
+            'LTI 1.3 launch handed off to browser for config_id=%s resource_link_id=%s user_id=%s '
+            'launch_url=%s: Open edX finished building the launch successfully; any failure past this '
+            'point happens in the browser-to-tool POST and on the tool\'s own server, outside these logs.',
+            config_id,
+            launch_data.resource_link_id,
+            user_id,
+            context['launch_url'],
+        )
 
         return render(request, 'html/lti_1p3_launch.html', context)
     except Lti1p3Exception as exc:
@@ -742,6 +803,24 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         lti_configuration = self.request.lti_configuration
         serializer.save(lti_configuration=lti_configuration)
+        log.info(
+            'LTI AGS LineItem created for lti_config_id=%s resource_link_id=%s resource_id=%s.',
+            self.kwargs.get('lti_config_id'),
+            serializer.validated_data.get('resource_link_id'),
+            serializer.validated_data.get('resource_id'),
+        )
+
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Http404:
+            log.warning(
+                'LTI AGS request denied (404) for lti_config_id=%s lineitem pk=%s: the LineItem does not exist or '
+                'is not owned by this LTI configuration.',
+                self.kwargs.get('lti_config_id'),
+                self.kwargs.get('pk'),
+            )
+            raise
 
     @action(
         detail=True,
@@ -815,6 +894,17 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save(line_item=line_item)
+        log.info(
+            'LTI AGS score accepted for lti_config_id=%s lineitem_id=%s user_id=%s: scoreGiven=%s scoreMaximum=%s '
+            'activityProgress=%s gradingProgress=%s.',
+            self.kwargs.get('lti_config_id'),
+            line_item.id,
+            user_id,
+            serializer.data.get('scoreGiven'),
+            serializer.data.get('scoreMaximum'),
+            serializer.data.get('activityProgress'),
+            serializer.data.get('gradingProgress'),
+        )
         headers = self.get_success_headers(serializer.data)
         return Response(
             serializer.data,

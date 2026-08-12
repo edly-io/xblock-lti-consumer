@@ -3,12 +3,16 @@ Django REST Framework extensions for LTI 1.3 & LTI Advantage implementation.
 
 Implements a custom authentication class to be used by LTI Advantage extensions.
 """
+import logging
+
 from django.contrib.auth.models import AnonymousUser
 from django.utils.translation import gettext as _
 from rest_framework import authentication
 from rest_framework import exceptions
 
 from lti_consumer.models import LtiConfiguration
+
+log = logging.getLogger(__name__)
 
 
 class Lti1p3ApiAuthentication(authentication.BaseAuthentication):
@@ -38,14 +42,26 @@ class Lti1p3ApiAuthentication(authentication.BaseAuthentication):
 
         # Check if auth token is present on request and is correctly formatted.
         if not auth or auth[0].lower() != self.keyword.lower():
+            log.warning(
+                'LTI 1.3 API authentication failed for lti_config_id=%s: missing or malformed Authorization header.',
+                lti_config_id,
+            )
             msg = _('Missing LTI 1.3 authentication token.')
             raise exceptions.AuthenticationFailed(msg)
 
         if len(auth) == 1:
+            log.warning(
+                'LTI 1.3 API authentication failed for lti_config_id=%s: Authorization header had no credentials.',
+                lti_config_id,
+            )
             msg = _('Invalid token header. No credentials provided.')
             raise exceptions.AuthenticationFailed(msg)
 
         if len(auth) > 2:
+            log.warning(
+                'LTI 1.3 API authentication failed for lti_config_id=%s: Authorization header contained spaces.',
+                lti_config_id,
+            )
             msg = _('Invalid token header. Token string should not contain spaces.')
             raise exceptions.AuthenticationFailed(msg)
 
@@ -54,6 +70,11 @@ class Lti1p3ApiAuthentication(authentication.BaseAuthentication):
             lti_configuration = LtiConfiguration.objects.get(pk=lti_config_id)
             lti_consumer = lti_configuration.get_lti_consumer()
         except Exception as err:
+            log.warning(
+                'LTI 1.3 API authentication failed: could not load LtiConfiguration for lti_config_id=%s: %s',
+                lti_config_id,
+                err,
+            )
             msg = _('LTI configuration not found.')
             raise exceptions.AuthenticationFailed(msg) from err
 
@@ -63,6 +84,13 @@ class Lti1p3ApiAuthentication(authentication.BaseAuthentication):
         try:
             lti_consumer.check_token(auth[1])
         except Exception as err:
+            log.warning(
+                'LTI 1.3 API authentication failed for lti_config_id=%s: access token could not be validated '
+                '(%s: %s).',
+                lti_config_id,
+                type(err).__name__,
+                err,
+            )
             msg = _('Invalid token signature.')
             raise exceptions.AuthenticationFailed(msg) from err
 
