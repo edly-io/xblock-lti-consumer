@@ -269,6 +269,27 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
         # Set sub and roles claims.
         user_id = launch_data.external_user_id if launch_data.external_user_id else launch_data.user_id
         user_role = launch_data.user_role
+
+        log.info(
+            'LTI 1.3 launch data retrieved for lti_message_hint=%s: config_id=%s resource_link_id=%s '
+            'message_type=%s user_id=%s user_role=%s context_id=%s context_type=%s has_name=%s '
+            'has_email=%s has_preferred_username=%s custom_parameter_keys=%s '
+            'deep_linking_content_item_id=%s.',
+            lti_message_hint,
+            config_id,
+            launch_data.resource_link_id,
+            launch_data.message_type,
+            user_id,
+            user_role,
+            launch_data.context_id,
+            launch_data.context_type,
+            bool(launch_data.name),
+            bool(launch_data.email),
+            bool(launch_data.preferred_username),
+            list((launch_data.custom_parameters or {}).keys()),
+            launch_data.deep_linking_content_item_id,
+        )
+
         lti_consumer.set_user_data(
             user_id=user_id,
             role=user_role,
@@ -315,6 +336,23 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
 
         # Retrieve preflight response.
         preflight_response = request_params.dict()
+
+        log.info(
+            # state/nonce are single-use, tool-generated correlation values (not credentials) —
+            # logging them lets a specific launch attempt be matched against the tool's own logs.
+            'LTI 1.3 authentication request (preflight response) received from tool for config_id=%s: '
+            'redirect_uri=%s client_id=%s state=%s nonce=%s response_type=%s response_mode=%s '
+            'scope=%s prompt=%s.',
+            config_id,
+            preflight_response.get('redirect_uri'),
+            preflight_response.get('client_id'),
+            preflight_response.get('state'),
+            preflight_response.get('nonce'),
+            preflight_response.get('response_type'),
+            preflight_response.get('response_mode'),
+            preflight_response.get('scope'),
+            preflight_response.get('prompt'),
+        )
 
         # Set LTI Launch URL.
         context.update({'launch_url': preflight_response.get("redirect_uri")})
@@ -392,6 +430,16 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
             'launch_url': context['launch_url']
         }
         track_event('xblock.launch_request', event)
+
+        log.info(
+            'LTI 1.3 launch handed off to browser for config_id=%s resource_link_id=%s user_id=%s '
+            'launch_url=%s: Open edX finished building the launch successfully; any failure past this '
+            'point happens in the browser-to-tool POST and on the tool\'s own server, outside these logs.',
+            config_id,
+            launch_data.resource_link_id,
+            user_id,
+            context['launch_url'],
+        )
 
         return render(request, 'html/lti_1p3_launch.html', context)
     except Lti1p3Exception as exc:

@@ -146,6 +146,18 @@ class LtiConsumer1p3:
             "lti_message_hint": launch_data_key,
         }
 
+        log.info(
+            'LTI 1.3 OIDC login redirect prepared for oidc_url=%s: iss=%s client_id=%s deployment_id=%s '
+            'target_link_uri=%s login_hint=%s lti_message_hint=%s.',
+            self.oidc_url,
+            self.iss,
+            self.client_id,
+            self.deployment_id,
+            target_link_uri,
+            login_hint,
+            launch_data_key,
+        )
+
         return oidc_url + urlencode(parameters)
 
     def set_user_data(
@@ -411,6 +423,12 @@ class LtiConsumer1p3:
         lti_launch_message.update({
             "nonce": preflight_response.get("nonce")
         })
+
+        log.info(
+            'LTI 1.3 launch request assembled for target_link_uri=%s: claims=%s.',
+            lti_launch_message.get('https://purl.imsglobal.org/spec/lti/claim/target_link_uri'),
+            lti_launch_message,
+        )
 
         return {
             "state": preflight_response.get("state"),
@@ -723,6 +741,12 @@ class LtiAdvantageConsumer(LtiConsumer1p3):
             lti_launch_message.update({
                 "nonce": preflight_response.get("nonce")
             })
+
+            log.info(
+                'LTI 1.3 Deep Linking launch request assembled for target_link_uri=%s: claims=%s.',
+                target_link_uri,
+                lti_launch_message,
+            )
 
             # Return new lanch message, used by XBlock to present the launch
             return {
