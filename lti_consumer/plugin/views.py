@@ -244,10 +244,23 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
         user_id = launch_data.external_user_id if launch_data.external_user_id else launch_data.user_id
         user_role = launch_data.user_role
 
+        # custom_parameters is documented as a dict, but callers (and existing tests) also pass a
+        # list of "key=value" strings, so extract just the parameter names defensively either way.
+        custom_parameters = launch_data.custom_parameters
+        if isinstance(custom_parameters, dict):
+            custom_parameter_names = list(custom_parameters.keys())
+        elif isinstance(custom_parameters, (list, tuple)):
+            custom_parameter_names = [
+                param.split('=', 1)[0] for param in custom_parameters
+                if isinstance(param, str) and '=' in param
+            ]
+        else:
+            custom_parameter_names = []
+
         log.info(
             'LTI 1.3 launch data retrieved for lti_message_hint=%s: config_id=%s resource_link_id=%s '
             'message_type=%s user_id=%s user_role=%s context_id=%s context_type=%s has_name=%s '
-            'has_email=%s has_preferred_username=%s custom_parameter_keys=%s '
+            'has_email=%s has_preferred_username=%s custom_parameter_names=%s '
             'deep_linking_content_item_id=%s.',
             lti_message_hint,
             config_id,
@@ -260,7 +273,7 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
             bool(launch_data.name),
             bool(launch_data.email),
             bool(launch_data.preferred_username),
-            list((launch_data.custom_parameters or {}).keys()),
+            custom_parameter_names,
             launch_data.deep_linking_content_item_id,
         )
 
