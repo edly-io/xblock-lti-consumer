@@ -6,6 +6,7 @@ return plaintext to allow easy testing/mocking.
 """
 
 import json
+import logging
 
 from opaque_keys.edx.keys import CourseKey
 
@@ -21,6 +22,8 @@ from .utils import (
     get_lms_lti_access_token_link,
 )
 from .filters import get_external_config_from_filter
+
+log = logging.getLogger(__name__)
 
 
 def _get_or_create_local_lti_config(lti_version, block_location,
