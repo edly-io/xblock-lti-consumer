@@ -703,6 +703,38 @@ def deep_linking_content_endpoint(request, lti_config_id):
     })
 
 
+def _ags_field_status(payload, field):
+    """
+    Return 'missing', 'blank', or 'present' for a field in an AGS request payload,
+    without logging the (tool-supplied, potentially sensitive) field value itself.
+    """
+    if not hasattr(payload, 'get'):
+        return 'n/a'
+    value = payload.get(field)
+    if value is None:
+        return 'missing'
+    if isinstance(value, str) and not value.strip():
+        return 'blank'
+    return 'present'
+
+
+def _summarize_ags_error(response_data, max_len=200):
+    """
+    Build a short, log-safe summary of a DRF AGS error response body: for each
+    top-level key, the first error message truncated, so a malformed or huge
+    tool-supplied payload can't blow up the log line.
+    """
+    if isinstance(response_data, dict):
+        summary = {}
+        for key, value in response_data.items():
+            if isinstance(value, (list, tuple)) and value:
+                summary[key] = str(value[0])[:max_len]
+            else:
+                summary[key] = str(value)[:max_len]
+        return summary
+    return str(response_data)[:max_len]
+
+
 class LtiAgsLineItemViewset(viewsets.ModelViewSet):
     """
     LineItem endpoint implementation from LTI Advantage.
@@ -731,6 +763,60 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         'resource_id',
         'tag'
     ]
+
+    def initial(self, request, *args, **kwargs):
+        """
+        Log a structured summary of every incoming LTI AGS request (line item
+        list/create/read/update/delete, score submission, result retrieval)
+        before authentication/permission checks run, so the request is logged
+        even when the tool's credentials or payload turn out to be invalid.
+        """
+        lti_config_id = self.kwargs.get('lti_config_id')
+        line_item_id = self.kwargs.get('pk')
+        payload = request.data if request.method in ('POST', 'PUT', 'PATCH') else request.query_params
+
+        log.info(
+            'LTI AGS request received: action=%s method=%s lti_config_id=%s line_item_id=%s '
+            'payload_keys=%s resourceId=%s resourceLinkId=%s scoreMaximum=%s userId=%s '
+            'scoreGiven=%s activityProgress=%s gradingProgress=%s comment=%s.',
+            self.action,
+            request.method,
+            lti_config_id,
+            line_item_id,
+            list(payload.keys()) if hasattr(payload, 'keys') else [],
+            _ags_field_status(payload, 'resourceId'),
+            _ags_field_status(payload, 'resourceLinkId'),
+            _ags_field_status(payload, 'scoreMaximum'),
+            _ags_field_status(payload, 'userId'),
+            _ags_field_status(payload, 'scoreGiven'),
+            _ags_field_status(payload, 'activityProgress'),
+            _ags_field_status(payload, 'gradingProgress'),
+            _ags_field_status(payload, 'comment'),
+        )
+
+        super().initial(request, *args, **kwargs)
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        """
+        Log the outcome of every LTI AGS request (status code, and error
+        keys/messages when the response is an error) so a failed tool
+        integration call can be matched against what was logged in `initial`.
+        """
+        response = super().finalize_response(request, response, *args, **kwargs)
+
+        is_error = response.status_code >= 400
+        log.info(
+            'LTI AGS response returned: action=%s method=%s lti_config_id=%s line_item_id=%s '
+            'status_code=%s error=%s.',
+            getattr(self, 'action', None),
+            request.method,
+            self.kwargs.get('lti_config_id'),
+            self.kwargs.get('pk'),
+            response.status_code,
+            _summarize_ags_error(response.data) if is_error else None,
+        )
+
+        return response
 
     def get_queryset(self):
         lti_configuration = self.request.lti_configuration
