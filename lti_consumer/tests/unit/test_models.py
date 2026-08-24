@@ -638,6 +638,19 @@ class TestLtiAgsScoreModel(TestCase):
             self.score.score_maximum = None
             self.score.save()
 
+    def test_no_score_max_fails_when_setting_zero_score(self):
+        """
+        Test that the model raises the same exception for a `scoreGiven` of 0 without
+        `scoreMaximum`, not just for a truthy `scoreGiven`.
+
+        `clean()` previously checked `self.score_given` for truthiness, which let a
+        `scoreGiven` of 0 (falsy but valid) through without `scoreMaximum` set.
+        """
+        with self.assertRaises(ValidationError):
+            self.score.score_given = 0
+            self.score.score_maximum = None
+            self.score.save()
+
     def test_repr(self):
         """
         Test String representation of model.

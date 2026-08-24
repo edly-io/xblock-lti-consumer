@@ -716,19 +716,21 @@ def deep_linking_content_endpoint(request, lti_config_id):
     })
 
 
-def _ags_field_status(payload, field):
+def _ags_field_value(payload, field, max_len=200):
     """
-    Return 'missing', 'blank', or 'present' for a field in an AGS request payload,
-    without logging the (tool-supplied, potentially sensitive) field value itself.
+    Return the value of `field` from an AGS request payload, for logging.
+
+    Truncated to `max_len` characters so a malformed or oversized tool-supplied payload can't
+    blow up the log line. Returns 'n/a' if the payload doesn't support key lookup, and 'missing'
+    if the key is absent entirely -- as opposed to an explicit `null`, which is returned as the
+    string 'None' so the two remain distinguishable in the log (e.g. an AGS "erase score" request
+    explicitly nulls `scoreGiven` rather than omitting it).
     """
     if not hasattr(payload, 'get'):
         return 'n/a'
-    value = payload.get(field)
-    if value is None:
+    if field not in payload:
         return 'missing'
-    if isinstance(value, str) and not value.strip():
-        return 'blank'
-    return 'present'
+    return str(payload.get(field))[:max_len]
 
 
 def _summarize_ags_error(response_data, max_len=200):
@@ -791,20 +793,21 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         log.info(
             'LTI AGS request received: action=%s method=%s lti_config_id=%s line_item_id=%s '
             'payload_keys=%s resourceId=%s resourceLinkId=%s scoreMaximum=%s userId=%s '
-            'scoreGiven=%s activityProgress=%s gradingProgress=%s comment=%s.',
+            'scoreGiven=%s activityProgress=%s gradingProgress=%s comment=%s timestamp=%s.',
             self.action,
             request.method,
             lti_config_id,
             line_item_id,
             list(payload.keys()) if hasattr(payload, 'keys') else [],
-            _ags_field_status(payload, 'resourceId'),
-            _ags_field_status(payload, 'resourceLinkId'),
-            _ags_field_status(payload, 'scoreMaximum'),
-            _ags_field_status(payload, 'userId'),
-            _ags_field_status(payload, 'scoreGiven'),
-            _ags_field_status(payload, 'activityProgress'),
-            _ags_field_status(payload, 'gradingProgress'),
-            _ags_field_status(payload, 'comment'),
+            _ags_field_value(payload, 'resourceId'),
+            _ags_field_value(payload, 'resourceLinkId'),
+            _ags_field_value(payload, 'scoreMaximum'),
+            _ags_field_value(payload, 'userId'),
+            _ags_field_value(payload, 'scoreGiven'),
+            _ags_field_value(payload, 'activityProgress'),
+            _ags_field_value(payload, 'gradingProgress'),
+            _ags_field_value(payload, 'comment'),
+            _ags_field_value(payload, 'timestamp'),
         )
 
         super().initial(request, *args, **kwargs)

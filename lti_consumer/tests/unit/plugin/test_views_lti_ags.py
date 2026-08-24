@@ -499,6 +499,29 @@ class LtiAgsViewSetScoresTests(LtiAgsLineItemViewSetTestCase):
         call_args = self.xblock.set_user_module_score.call_args.args
         self.assertEqual(call_args, ('user_mock', 0.83, 1, 'This is exceptional work.'))
 
+    def test_xblock_grade_publish_with_zero_score(self):
+        """
+        Test that a `scoreGiven` of 0 is published to the LMS end-to-end, rather than being
+        silently skipped by the falsy-zero check this fix corrects.
+        """
+        # Set up LMS mocks
+        self._compat_mock.load_block_as_user.return_value = self.xblock
+        self._compat_mock.get_user_from_external_user_id.return_value = 'user_mock'
+        self.xblock.set_user_module_score = Mock()
+
+        # Set xblock attribute and make score request
+        self.xblock.has_score = True
+        self._post_lti_score({
+            "scoreGiven": 0,
+            "gradingProgress": "FullyGraded",
+        })
+
+        # Check if publish grade was called
+        self.xblock.set_user_module_score.assert_called_once()
+
+        call_args = self.xblock.set_user_module_score.call_args.args
+        self.assertEqual(call_args, ('user_mock', 0, 1, 'This is exceptional work.'))
+
     def test_grade_publish_score_bigger_than_maximum(self):
         """
         Test when given score is bigger than maximum score.

@@ -98,3 +98,100 @@ class PublishGradeOnScoreUpdateTest(TestCase):
         self._block_mock.set_user_module_score.assert_called_once()
         self._compat_mock.get_user_from_external_user_id.assert_called_once()
         self._compat_mock.load_block_as_user.assert_called_once()
+
+    def test_grade_publish_with_zero_score(self):
+        """
+        Test that a `scoreGiven` of 0 is published like any other score.
+
+        `score_given` is falsy for a `FloatField` value of `0.0`. Before this fix, the guard used
+        a truthiness check (`and instance.score_given`) and silently skipped a legitimate zero
+        score; it must now use `is not None` so 0 is treated as a present, valid grade.
+        """
+        line_item = LtiAgsLineItem.objects.create(
+            lti_configuration=self.lti_config,
+            resource_id="test",
+            resource_link_id=self.location,
+            label="test label",
+            score_maximum=100
+        )
+
+        LtiAgsScore.objects.create(
+            line_item=line_item,
+            score_given=0,
+            score_maximum=100,
+            activity_progress=LtiAgsScore.COMPLETED,
+            grading_progress=LtiAgsScore.FULLY_GRADED,
+            user_id="test",
+            timestamp=datetime.now(),
+        )
+
+        self._block_mock.set_user_module_score.assert_called_once()
+        call_args = self._block_mock.set_user_module_score.call_args.args
+        self.assertEqual(call_args[1], 0)
+
+    def test_grade_publish_not_done_when_score_given_missing(self):
+        """
+        Test that grade publish is still skipped (not errored) when `score_given` is absent, e.g.
+        an AGS "erase score" request that nulls out `scoreGiven`/`scoreMaximum`.
+
+        Unlike the zero-score case above, this is unchanged behavior: `score_given=None` was
+        already falsy under the old truthiness check, and is also caught by the new
+        `is not None` check, so this is a lock-in test rather than a new assertion.
+        """
+        line_item = LtiAgsLineItem.objects.create(
+            lti_configuration=self.lti_config,
+            resource_id="test",
+            resource_link_id=self.location,
+            label="test label",
+            score_maximum=100
+        )
+
+        LtiAgsScore.objects.create(
+            line_item=line_item,
+            score_given=None,
+            score_maximum=None,
+            activity_progress=LtiAgsScore.COMPLETED,
+            grading_progress=LtiAgsScore.FULLY_GRADED,
+            user_id="test",
+            timestamp=datetime.now(),
+        )
+
+        self._block_mock.set_user_module_score.assert_not_called()
+        self._compat_mock.load_block_as_user.assert_not_called()
+
+    def test_grade_publish_not_done_when_score_maximum_zero(self):
+        """
+        Test that grade publish is skipped -- not errored with a `ZeroDivisionError` -- when
+        `score_maximum` is 0 while `score_given` is present.
+
+        This combination can't be produced through the AGS API (the serializer rejects a
+        `scoreMaximum` of 0), but `MinValueValidator(0)` and `LtiAgsScore.clean()` both permit it
+        at the model layer (0 is a valid, non-`None` value), so it's reachable via the Django
+        admin or direct ORM access, and the signal's normalized-score division would otherwise
+        crash on it.
+
+        Note: `score_maximum=None` is not tested here alongside 0, because `LtiAgsScore.clean()`
+        already rejects `score_given` being present with `score_maximum=None` for any
+        `score_given` value (including 0, after this fix) -- that combination raises
+        `ValidationError` at `.create()` and never reaches this signal.
+        """
+        line_item = LtiAgsLineItem.objects.create(
+            lti_configuration=self.lti_config,
+            resource_id="test",
+            resource_link_id=self.location,
+            label="test label",
+            score_maximum=100
+        )
+
+        LtiAgsScore.objects.create(
+            line_item=line_item,
+            score_given=10,
+            score_maximum=0,
+            activity_progress=LtiAgsScore.COMPLETED,
+            grading_progress=LtiAgsScore.FULLY_GRADED,
+            user_id="test",
+            timestamp=datetime.now(),
+        )
+
+        self._block_mock.set_user_module_score.assert_not_called()
+        self._compat_mock.load_block_as_user.assert_not_called()

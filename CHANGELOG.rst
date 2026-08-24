@@ -19,6 +19,14 @@ Unreleased
 * Backport (Ulmo): pass context claim & use external config ``deployment_id`` in deep linking launch (PR #612; issues #611, #610).
 * Backport (Ulmo): AGS results endpoint trailing-slash compatibility, allow blank AGS score ``comment``, correct deep linking launch ``target_link_uri``, and use correct key/secret pair for LTI 1.1 grade passback (PR #643; issues #633, #628, #637, #620).
 * Backport (Ulmo): update LTI 1.3 launch and NRPS role mapping to use context role URIs, include supported forum roles like ``Community TA`` and ``Group Moderator`` in launches and NRPS membership responses, and add ADR documenting the updated role mapping behavior (PR #645).
+* fix: publish LTI AGS grades of 0 to the gradebook. The ``publish_grade_on_score_update`` signal
+  used a truthiness check on ``scoreGiven``, so a legitimate score of 0 (falsy) was silently
+  skipped; it now checks presence explicitly. Also guards the score/max-score division against a
+  ``scoreMaximum`` of 0 or unset, and closes the same truthiness gap in ``LtiAgsScore.clean()``.
+* feat: log the reason a grade publish was skipped (grading progress, resource link id, score
+  given/maximum) instead of only ever logging a successful publish, and log the actual values of
+  incoming AGS request fields in ``LtiAgsLineItemViewset.initial()`` instead of presence/blank
+  status, to make diagnosing tool-integration issues from logs alone possible.
 
 9.14.3 - 2025-10-22
 -------------------
