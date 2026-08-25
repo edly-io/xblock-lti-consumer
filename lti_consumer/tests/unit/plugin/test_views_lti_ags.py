@@ -846,6 +846,36 @@ class LtiAgsViewSetScoresTests(LtiAgsLineItemViewSetTestCase):
         self.assertEqual(response.status_code, 400)
         assert 'scoreMaximum' in response.data.keys()
 
+    def test_create_score_with_zero_score_maximum(self):
+        """
+        Test invalid request with `scoreMaximum: 0` -- present, but not a usable denominator.
+
+        Distinct from `test_create_score_with_missing_score_maximum`: `scoreMaximum` here is not
+        absent, so `validate_scoreMaximum` must reject it via an explicit `value <= 0` check
+        rather than the `value is None` check alone, and report the more accurate "must be a
+        positive number" message rather than "is a required field".
+        """
+        self._set_lti_token('https://purl.imsglobal.org/spec/lti-ags/scope/score')
+
+        response = self.client.post(
+            self.scores_endpoint,
+            data=json.dumps({
+                "timestamp": self.late_timestamp,
+                "scoreGiven": 0,
+                "scoreMaximum": 0,
+                "comment": "This is exceptional work.",
+                "activityProgress": LtiAgsScore.INITIALIZED,
+                "gradingProgress": LtiAgsScore.NOT_READY,
+                "userId": self.primary_user_id
+            }),
+            content_type="application/vnd.ims.lis.v1.score+json",
+        )
+
+        self.assertEqual(LtiAgsScore.objects.all().count(), 0)
+        self.assertEqual(response.status_code, 400)
+        assert 'scoreMaximum' in response.data.keys()
+        assert 'positive number' in str(response.data['scoreMaximum'])
+
     def test_erase_score(self):
         """
         Test erasing LTI AGS Scores by omitting scoreGiven and scoreMaximum.

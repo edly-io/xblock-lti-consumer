@@ -651,6 +651,21 @@ class TestLtiAgsScoreModel(TestCase):
             self.score.score_maximum = None
             self.score.save()
 
+    def test_score_max_fails_when_zero_with_score_given_set(self):
+        """
+        Test that the model rejects `scoreMaximum=0` alongside a set `scoreGiven`, not just
+        `scoreMaximum=None`.
+
+        A `scoreMaximum` of 0 isn't a usable denominator either, and previously `clean()` only
+        checked for `None`, so this combination could be saved via the ORM/admin -- silently
+        skipped by `publish_grade_on_score_update`, yet still reported as a fabricated
+        "successful" result (`resultMaximum: 1`) by `LtiAgsResultSerializer.get_resultMaximum`.
+        """
+        with self.assertRaises(ValidationError):
+            self.score.score_given = 10
+            self.score.score_maximum = 0
+            self.score.save()
+
     def test_repr(self):
         """
         Test String representation of model.

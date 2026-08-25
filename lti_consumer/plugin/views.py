@@ -716,21 +716,33 @@ def deep_linking_content_endpoint(request, lti_config_id):
     })
 
 
+# Fields that may carry PII or arbitrary tool-supplied free text (a persistent external user
+# identifier, and a free-text comment). Logged as a length only, never their content -- the rest
+# of the AGS fields are grading metadata (scores, progress enums, resource ids) safe to log as-is.
+_AGS_REDACTED_LOG_FIELDS = frozenset({'userId', 'comment'})
+
+
 def _ags_field_value(payload, field, max_len=200):
     """
-    Return the value of `field` from an AGS request payload, for logging.
+    Return a log-safe representation of `field` from an AGS request payload.
 
     Truncated to `max_len` characters so a malformed or oversized tool-supplied payload can't
-    blow up the log line. Returns 'n/a' if the payload doesn't support key lookup, and 'missing'
-    if the key is absent entirely -- as opposed to an explicit `null`, which is returned as the
-    string 'None' so the two remain distinguishable in the log (e.g. an AGS "erase score" request
-    explicitly nulls `scoreGiven` rather than omitting it).
+    blow up the log line, and with newlines/carriage returns escaped so a tool-supplied value
+    can't be used to forge additional, fake-looking log lines. Returns 'n/a' if the payload
+    doesn't support key lookup, and 'missing' if the key is absent entirely -- as opposed to an
+    explicit `null`, which is returned as the string 'None' so the two remain distinguishable in
+    the log (e.g. an AGS "erase score" request explicitly nulls `scoreGiven` rather than omitting
+    it). See `_AGS_REDACTED_LOG_FIELDS` for fields logged as a length only.
     """
     if not hasattr(payload, 'get'):
         return 'n/a'
     if field not in payload:
         return 'missing'
-    return str(payload.get(field))[:max_len]
+    value = payload.get(field)
+    if field in _AGS_REDACTED_LOG_FIELDS:
+        return 'n/a' if value is None else f'<{len(str(value))} chars>'
+    text = str(value)[:max_len]
+    return text.replace('\n', '\\n').replace('\r', '\\r')
 
 
 def _summarize_ags_error(response_data, max_len=200):
