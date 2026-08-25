@@ -156,7 +156,7 @@ class LtiAgsScoreSerializer(serializers.ModelSerializer):
         if value is None:
             raise serializers.ValidationError('scoreMaximum is a required field when providing a scoreGiven value.')
         if value <= 0:
-            raise serializers.ValidationError('scoreMaximum must be a positive number when providing a scoreGiven value.')
+            raise serializers.ValidationError('scoreMaximum must be a positive number when scoreGiven is provided.')
         return value
 
     class Meta:

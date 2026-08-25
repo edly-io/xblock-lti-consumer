@@ -4,6 +4,7 @@ Tests for LTI Advantage Assignments and Grades Service views.
 from datetime import datetime
 from unittest.mock import patch, Mock
 
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 from opaque_keys.edx.keys import UsageKey
 
@@ -161,19 +162,21 @@ class PublishGradeOnScoreUpdateTest(TestCase):
 
     def test_grade_publish_not_done_when_score_maximum_zero(self):
         """
-        Test that grade publish is skipped -- not errored with a `ZeroDivisionError` -- when
-        `score_maximum` is 0 while `score_given` is present.
+        Test that `score_maximum=0` alongside a set `score_given` is rejected at save time,
+        never reaching the publish signal at all.
 
         This combination can't be produced through the AGS API (the serializer rejects a
-        `scoreMaximum` of 0), but `MinValueValidator(0)` and `LtiAgsScore.clean()` both permit it
-        at the model layer (0 is a valid, non-`None` value), so it's reachable via the Django
-        admin or direct ORM access, and the signal's normalized-score division would otherwise
-        crash on it.
+        `scoreMaximum` of 0). It previously could still be produced via the Django admin or
+        direct ORM access -- `MinValueValidator(0)` and the old `LtiAgsScore.clean()` both
+        permitted it (0 is a valid, non-`None` value) -- reaching this signal, whose normalized-
+        score division would otherwise crash on it (worked around, at the time, by a
+        `score_maximum > 0` guard in the signal itself).
 
-        Note: `score_maximum=None` is not tested here alongside 0, because `LtiAgsScore.clean()`
-        already rejects `score_given` being present with `score_maximum=None` for any
-        `score_given` value (including 0, after this fix) -- that combination raises
-        `ValidationError` at `.create()` and never reaches this signal.
+        `LtiAgsScore.clean()` now rejects `score_maximum <= 0` whenever `score_given` is set
+        (not just `score_maximum is None`), closing the gap at the source: this state can no
+        longer be saved at all, so the signal's own guard is never exercised by it. See
+        `lti_consumer.tests.unit.test_models.TestLtiAgsScoreModel.
+        test_score_max_fails_when_zero_with_score_given_set` for the model-level assertion.
         """
         line_item = LtiAgsLineItem.objects.create(
             lti_configuration=self.lti_config,
@@ -183,15 +186,16 @@ class PublishGradeOnScoreUpdateTest(TestCase):
             score_maximum=100
         )
 
-        LtiAgsScore.objects.create(
-            line_item=line_item,
-            score_given=10,
-            score_maximum=0,
-            activity_progress=LtiAgsScore.COMPLETED,
-            grading_progress=LtiAgsScore.FULLY_GRADED,
-            user_id="test",
-            timestamp=datetime.now(),
-        )
+        with self.assertRaises(ValidationError):
+            LtiAgsScore.objects.create(
+                line_item=line_item,
+                score_given=10,
+                score_maximum=0,
+                activity_progress=LtiAgsScore.COMPLETED,
+                grading_progress=LtiAgsScore.FULLY_GRADED,
+                user_id="test",
+                timestamp=datetime.now(),
+            )
 
         self._block_mock.set_user_module_score.assert_not_called()
         self._compat_mock.load_block_as_user.assert_not_called()

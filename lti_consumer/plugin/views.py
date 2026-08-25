@@ -722,6 +722,14 @@ def deep_linking_content_endpoint(request, lti_config_id):
 _AGS_REDACTED_LOG_FIELDS = frozenset({'userId', 'comment'})
 
 
+def _truncate_for_log(value, max_len=200):
+    """
+    Stringify and truncate `value` to `max_len` characters, so a malformed or oversized
+    tool-supplied value can't blow up a log line.
+    """
+    return str(value)[:max_len]
+
+
 def _ags_field_value(payload, field, max_len=200):
     """
     Return a log-safe representation of `field` from an AGS request payload.
@@ -741,7 +749,7 @@ def _ags_field_value(payload, field, max_len=200):
     value = payload.get(field)
     if field in _AGS_REDACTED_LOG_FIELDS:
         return 'n/a' if value is None else f'<{len(str(value))} chars>'
-    text = str(value)[:max_len]
+    text = _truncate_for_log(value, max_len)
     return text.replace('\n', '\\n').replace('\r', '\\r')
 
 
@@ -755,11 +763,11 @@ def _summarize_ags_error(response_data, max_len=200):
         summary = {}
         for key, value in response_data.items():
             if isinstance(value, (list, tuple)) and value:
-                summary[key] = str(value[0])[:max_len]
+                summary[key] = _truncate_for_log(value[0], max_len)
             else:
-                summary[key] = str(value)[:max_len]
+                summary[key] = _truncate_for_log(value, max_len)
         return summary
-    return str(response_data)[:max_len]
+    return _truncate_for_log(response_data, max_len)
 
 
 class LtiAgsLineItemViewset(viewsets.ModelViewSet):
