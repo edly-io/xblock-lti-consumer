@@ -74,7 +74,8 @@ def _get_lti_config_for_block(block):
             block.external_config
         )
         lti_config = _get_or_create_local_lti_config(
-            config.get("version"),
+            # fallback on block lti_version if the external config does not provide one
+            config.get("version") or block.lti_version,
             block.scope_ids.usage_id,
             LtiConfiguration.CONFIG_EXTERNAL,
             external_id=block.external_config,

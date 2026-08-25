@@ -16,6 +16,14 @@ Please See the `releases tab <https://github.com/openedx/xblock-lti-consumer/rel
 Unreleased
 ~~~~~~~~~~
 
+9.14.4 - 2026-08-25
+-------------------
+* Fix LTI 1.3 deep linking `target_link_uri` handling in both preflight and launch token generation.
+* Fix AGS results endpoint/serializer URL generation for optional `user_id`, including trailing-slash compatibility.
+* Allow AGS score `comment` to be blank and improve related API test coverage.
+* Use `get_lti_consumer()` OAuth credentials for LTI 1.1 signature/logging paths and align LTI 1.1 errors with shared `LtiError`.
+* Minor internal cleanup: public `get_lti_consumer()` rename, launch URL typing/casting, and fallback to block `lti_version` when config version is missing.
+
 9.14.2 - 2025-08-06
 -------------------
 * Deprecation/Removal of pyjwkest
