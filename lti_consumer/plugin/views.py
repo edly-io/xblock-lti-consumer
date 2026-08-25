@@ -716,19 +716,41 @@ def deep_linking_content_endpoint(request, lti_config_id):
     })
 
 
-def _ags_field_status(payload, field):
+# Fields that may carry PII or arbitrary tool-supplied free text (a persistent external user
+# identifier, and a free-text comment). Logged as a length only, never their content -- the rest
+# of the AGS fields are grading metadata (scores, progress enums, resource ids) safe to log as-is.
+_AGS_REDACTED_LOG_FIELDS = frozenset({'userId', 'comment'})
+
+
+def _truncate_for_log(value, max_len=200):
     """
-    Return 'missing', 'blank', or 'present' for a field in an AGS request payload,
-    without logging the (tool-supplied, potentially sensitive) field value itself.
+    Stringify and truncate `value` to `max_len` characters, so a malformed or oversized
+    tool-supplied value can't blow up a log line.
+    """
+    return str(value)[:max_len]
+
+
+def _ags_field_value(payload, field, max_len=200):
+    """
+    Return a log-safe representation of `field` from an AGS request payload.
+
+    Truncated to `max_len` characters so a malformed or oversized tool-supplied payload can't
+    blow up the log line, and with newlines/carriage returns escaped so a tool-supplied value
+    can't be used to forge additional, fake-looking log lines. Returns 'n/a' if the payload
+    doesn't support key lookup, and 'missing' if the key is absent entirely -- as opposed to an
+    explicit `null`, which is returned as the string 'None' so the two remain distinguishable in
+    the log (e.g. an AGS "erase score" request explicitly nulls `scoreGiven` rather than omitting
+    it). See `_AGS_REDACTED_LOG_FIELDS` for fields logged as a length only.
     """
     if not hasattr(payload, 'get'):
         return 'n/a'
-    value = payload.get(field)
-    if value is None:
+    if field not in payload:
         return 'missing'
-    if isinstance(value, str) and not value.strip():
-        return 'blank'
-    return 'present'
+    value = payload.get(field)
+    if field in _AGS_REDACTED_LOG_FIELDS:
+        return 'n/a' if value is None else f'<{len(str(value))} chars>'
+    text = _truncate_for_log(value, max_len)
+    return text.replace('\n', '\\n').replace('\r', '\\r')
 
 
 def _summarize_ags_error(response_data, max_len=200):
@@ -741,11 +763,11 @@ def _summarize_ags_error(response_data, max_len=200):
         summary = {}
         for key, value in response_data.items():
             if isinstance(value, (list, tuple)) and value:
-                summary[key] = str(value[0])[:max_len]
+                summary[key] = _truncate_for_log(value[0], max_len)
             else:
-                summary[key] = str(value)[:max_len]
+                summary[key] = _truncate_for_log(value, max_len)
         return summary
-    return str(response_data)[:max_len]
+    return _truncate_for_log(response_data, max_len)
 
 
 class LtiAgsLineItemViewset(viewsets.ModelViewSet):
@@ -791,20 +813,21 @@ class LtiAgsLineItemViewset(viewsets.ModelViewSet):
         log.info(
             'LTI AGS request received: action=%s method=%s lti_config_id=%s line_item_id=%s '
             'payload_keys=%s resourceId=%s resourceLinkId=%s scoreMaximum=%s userId=%s '
-            'scoreGiven=%s activityProgress=%s gradingProgress=%s comment=%s.',
+            'scoreGiven=%s activityProgress=%s gradingProgress=%s comment=%s timestamp=%s.',
             self.action,
             request.method,
             lti_config_id,
             line_item_id,
             list(payload.keys()) if hasattr(payload, 'keys') else [],
-            _ags_field_status(payload, 'resourceId'),
-            _ags_field_status(payload, 'resourceLinkId'),
-            _ags_field_status(payload, 'scoreMaximum'),
-            _ags_field_status(payload, 'userId'),
-            _ags_field_status(payload, 'scoreGiven'),
-            _ags_field_status(payload, 'activityProgress'),
-            _ags_field_status(payload, 'gradingProgress'),
-            _ags_field_status(payload, 'comment'),
+            _ags_field_value(payload, 'resourceId'),
+            _ags_field_value(payload, 'resourceLinkId'),
+            _ags_field_value(payload, 'scoreMaximum'),
+            _ags_field_value(payload, 'userId'),
+            _ags_field_value(payload, 'scoreGiven'),
+            _ags_field_value(payload, 'activityProgress'),
+            _ags_field_value(payload, 'gradingProgress'),
+            _ags_field_value(payload, 'comment'),
+            _ags_field_value(payload, 'timestamp'),
         )
 
         super().initial(request, *args, **kwargs)
