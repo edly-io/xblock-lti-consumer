@@ -75,6 +75,91 @@ class TestLtiConsumerXBlock(TestCase):
         self.compat.get_user_course_forum_role.return_value = None
 
 
+class TestGetEffectiveLtiVersion(TestLtiConsumerXBlock):
+    """
+    Tests for LtiConsumerXBlock.get_resolved_lti_version().
+    """
+
+    def test_returns_external_version_key_when_external(self):
+        """
+        When config_type is external and external config has a "version"
+        key, that version takes priority over self.lti_version.
+        """
+        self.xblock.config_type = "external"
+        self.xblock.external_config = "test-plugin:test-id"
+        self.xblock.lti_version = "lti_1p1"
+
+        with patch("lti_consumer.lti_xblock.get_external_config_from_filter") as mock_filter:
+            mock_filter.return_value = {"version": "lti_1p3"}
+            self.assertEqual(self.xblock.get_resolved_lti_version(), "lti_1p3")
+            mock_filter.assert_called_once()
+
+    def test_falls_back_to_lti_version_when_no_external_version(self):
+        """
+        When external config has no "version" key, fall back to
+        self.lti_version.
+        """
+        self.xblock.config_type = "external"
+        self.xblock.external_config = "test-plugin:test-id"
+        self.xblock.lti_version = "lti_1p1"
+
+        with patch("lti_consumer.lti_xblock.get_external_config_from_filter") as mock_filter:
+            mock_filter.return_value = {"lti_1p3_client_id": "test"}
+            self.assertEqual(self.xblock.get_resolved_lti_version(), "lti_1p1")
+
+    def test_falls_back_on_filter_exception(self):
+        """
+        When get_external_config_from_filter raises, fall back to
+        self.lti_version instead of propagating the exception.
+        """
+        self.xblock.config_type = "external"
+        self.xblock.external_config = "test-plugin:test-id"
+        self.xblock.lti_version = "lti_1p1"
+
+        with patch("lti_consumer.lti_xblock.get_external_config_from_filter") as mock_filter:
+            mock_filter.side_effect = Exception("Filter service unavailable")
+            version = self.xblock.get_resolved_lti_version()
+            self.assertEqual(version, "lti_1p1")
+
+
+class TestResolveExternalConfigVersion(TestLtiConsumerXBlock):
+    """
+    Tests for LtiConsumerXBlock.resolve_external_config_version().
+    """
+
+    def _call_handler(self, config_id):
+        """Helper: build a JSON POST request, call handler, parse JSON body."""
+        body = json.dumps({'config_id': config_id}) if config_id is not None else '{}'
+        request = make_request(body, 'POST')
+        response = self.xblock.resolve_external_config_version(request)
+        return json.loads(response.body)  # pylint: disable=no-member
+
+    def test_returns_version_for_known_config(self):
+        """Returns version when config ID exists and has a version key."""
+        with patch('lti_consumer.lti_xblock.get_external_config_from_filter') as mock_filter:
+            mock_filter.return_value = {'version': 'lti_1p3'}
+            result = self._call_handler('test-plugin:test-id')
+            self.assertEqual(result, {'found': True, 'version': 'lti_1p3'})
+
+    def test_returns_no_version_for_empty_config_id(self):
+        """Returns found=False when config_id is empty; does not call filter."""
+        with patch('lti_consumer.lti_xblock.get_external_config_from_filter') as mock_filter:
+            result = self._call_handler('')
+            self.assertEqual(result, {'found': False, 'version': None})
+            mock_filter.assert_not_called()
+
+    def test_graceful_on_filter_exception(self):
+        """
+        When get_external_config_from_filter raises, handler returns
+        {'found': False, 'version': None} instead of 500.
+        """
+        with patch('lti_consumer.lti_xblock.get_external_config_from_filter') as mock_filter:
+            mock_filter.side_effect = Exception("Filter service unavailable")
+            result = self._call_handler('test-plugin:test-id')
+            self.assertEqual(result, {'found': False, 'version': None})
+            mock_filter.assert_called_once()
+
+
 class TestIndexibility(TestCase):
     """
     Test indexibility of Lti Consumer XBlock
@@ -266,8 +351,11 @@ class TestProperties(TestLtiConsumerXBlock):
     @patch('lti_consumer.lti_xblock.LtiConsumerXBlock.course')
     def test_validate_lti_id(self, mock_course):
         """
-        Test `lti_id` returns a warning if it's not set as an LTI passport in the course
+        Test `lti_id` returns a warning if it's not set as an LTI passport in the course.
+        Only applies when config_type is "new" and lti_version is "lti_1p1".
         """
+        self.xblock.config_type = "new"
+        self.xblock.lti_version = "lti_1p1"
         valid_provider = 'lti_provider'
         self.xblock.lti_id = valid_provider
         type(mock_course).lti_passports = PropertyMock(return_value=[f"{valid_provider}:key:secret"])
@@ -277,6 +365,22 @@ class TestProperties(TestLtiConsumerXBlock):
         self.xblock.lti_id = "nonexistent"
         validation = self.xblock.validate()
         self.assertFalse(validation.empty)
+
+    @patch('lti_consumer.lti_xblock.LtiConsumerXBlock.course')
+    @ddt.data('external', 'database')
+    def test_validate_lti_id_non_new_config(self, config_type, mock_course):
+        """
+        Non-'new' config types (external, database) should not trigger
+        LTI passport warning even when lti_version=lti_1p1 and lti_id
+        is invalid.
+        """
+        self.xblock.config_type = config_type
+        self.xblock.lti_version = "lti_1p1"
+        self.xblock.external_config = "test:x" if config_type == "external" else None
+        self.xblock.lti_id = "nonexistent"
+        type(mock_course).lti_passports = PropertyMock(return_value=["valid:key:secret"])
+        validation = self.xblock.validate()
+        self.assertTrue(validation.empty, f"{config_type} config should not produce LTI passport warning")
 
     def test_role(self):
         """
@@ -2402,27 +2506,6 @@ class TestLti1p3AccessTokenJWK(TestCase):
         response = self.xblock.lti_1p3_access_token(self.request)
         self.assertEqual(response.status_code, 400)
         self.assertJSONEqual(response.content, {'error': 'invalid_client'})
-
-
-class TestSubmitStudioEditsHandler(TestLtiConsumerXBlock):
-    """
-    Unit tests for LtiConsumerXBlock.submit_studio_edits()
-    """
-
-    def setUp(self):
-        super().setUp()
-        self.xblock.lti_version = "lti_1p3"
-
-        db_config_waffle_patcher = patch('lti_consumer.lti_xblock.database_config_enabled', return_value=True)
-        db_config_waffle_patcher.start()
-        self.addCleanup(db_config_waffle_patcher.stop)
-
-        external_config_flag_patcher = patch(
-            'lti_consumer.lti_xblock.external_config_filter_enabled',
-            return_value=False
-        )
-        external_config_flag_patcher.start()
-        self.addCleanup(external_config_flag_patcher.stop)
 
 
 @ddt.ddt

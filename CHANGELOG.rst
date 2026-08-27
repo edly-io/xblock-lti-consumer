@@ -16,6 +16,22 @@ Please See the `releases tab <https://github.com/openedx/xblock-lti-consumer/rel
 Unreleased
 ~~~~~~~~~~
 
+9.15.1 - 2026-08-27
+-------------------
+* Fix LTI version conflicts for external (reusable) configs: resolve the
+  effective LTI version from the external config throughout XBlock runtime
+  paths (launch, access token, outcomes, context) instead of trusting a
+  possibly stale block-level ``lti_version`` field.
+* Studio editor: hide the ``LTI Version`` field and show the
+  ``LTI Reusable Configuration ID`` field when Configuration Type is set to
+  "Reusable Configuration", and vice versa for "Configuration on block" /
+  "Database Configuration", so the editor never shows an editable field
+  that has no effect.
+* Note: upstream PR #663 additionally reworked the Studio editor around a
+  multi-step wizard (openedx#650) with live AJAX version resolution as you
+  type a reusable config ID; this branch keeps its existing flat editor, so
+  only the show/hide behavior above was ported, not the live preview.
+
 9.15.0 - 2026-08-27
 -------------------
 * Update LTI 1.3 launch and NRPS role mapping to use context role URIs.

@@ -70,9 +70,10 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
     /**
      * Return fields that should be hidden based on the selected config type.
      *
-     *  new - Show all the LTI 1.1/1.3 config fields
-     *  database - Do not show the LTI 1.1/1.3 config fields
-     *  external - Show only the External Config ID field
+     *  new - Show all the LTI 1.1/1.3 config fields. Hide the Reusable Configuration ID field.
+     *  database - Do not show the LTI 1.1/1.3 config fields. Hide the Reusable Configuration ID field.
+     *  external - Show only the Reusable Configuration ID field. Hide LTI version, since it is
+     *             determined by the reusable config itself, not editable on this block.
      */
     function getFieldsToHideForLtiConfigType() {
         const configType = $(element).find('#xb-field-edit-config_type').val();
@@ -92,14 +93,20 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
                     fieldsToHide.splice(index, 1);
                 }
             }
+            // LTI version is determined by the reusable config, not editable on this block.
+            fieldsToHide.push("lti_version");
         } else if (configType === "database") {
             // Hide the LTI 1.1 and LTI 1.3 fields. The XBlock will remain the source of truth for the lti_version,
             // so do not hide it and continue to allow editing it from the XBlock edit menu in Studio.
             databaseConfigHiddenFields.forEach(function (field) {
                 fieldsToHide.push(field);
             })
+            // Reusable Configuration ID is not applicable for database-backed configuration.
+            fieldsToHide.push("external_config");
         } else {
-            // No fields should be hidden based on a config_type of 'new'.
+            // config_type of 'new': show all LTI 1.1/1.3 fields (handled above/below).
+            // Reusable Configuration ID is not applicable when configuring the tool directly on the block.
+            fieldsToHide.push("external_config");
         }
 
         return fieldsToHide;
@@ -127,7 +134,10 @@ function LtiConsumerXBlockInitStudio(runtime, element, data) {
      * Show or hide fields depending on the selected lti_version, config_type, and lti_1p3_tool_key_mode.
      */
     function toggleLtiFields() {
-        const configFields = lti1P1FieldList.concat(lti1P3FieldList);
+        // lti_version and external_config are toggled based on config_type (see
+        // getFieldsToHideForLtiConfigType), not on the LTI 1.1/1.3 field lists, but they still
+        // need to be reset to visible here so a later config_type change can show them again.
+        const configFields = lti1P1FieldList.concat(lti1P3FieldList).concat(["lti_version", "external_config"]);
         const hiddenFields = new Set();
 
         // Start with the assumption that all configFields should be visible. After that, we whittle down the
