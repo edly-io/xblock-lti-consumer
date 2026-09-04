@@ -518,6 +518,13 @@ class LtiConsumer1p3:
         # https://tools.ietf.org/html/rfc6749
         scopes_str = " ".join(valid_scopes)
 
+        log.info(
+            'LTI 1.3 access token issued: client_id=%s requested_scopes=%s granted_scopes=%s.',
+            self.client_id,
+            requested_scopes,
+            valid_scopes,
+        )
+
         # This response is compliant with RFC 6749
         # https://tools.ietf.org/html/rfc6749#section-4.4.3
         return {
@@ -571,7 +578,16 @@ class LtiConsumer1p3:
         # If `allowed_scopes` is empty, return true (just check
         # token validity).
         if allowed_scopes:
-            return any(scope in allowed_scopes for scope in token_scopes)
+            granted = any(scope in allowed_scopes for scope in token_scopes)
+            log_level = log.info if granted else log.warning
+            log_level(
+                'LTI 1.3 token scope check: client_id=%s token_scopes=%s required_scopes=%s granted=%s.',
+                self.client_id,
+                token_scopes,
+                allowed_scopes,
+                granted,
+            )
+            return granted
 
         return True
 

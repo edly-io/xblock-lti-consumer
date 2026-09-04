@@ -15,6 +15,7 @@ from django.shortcuts import render
 from django.utils.crypto import get_random_string
 from django.views.decorators.clickjacking import xframe_options_exempt, xframe_options_sameorigin
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
 from django_filters.rest_framework import DjangoFilterBackend
 from edx_django_utils.cache import TieredCache, get_cache_key
@@ -455,6 +456,7 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
 @csrf_exempt
 @xframe_options_sameorigin
 @require_http_methods(["POST"])
+@sensitive_post_parameters('client_assertion')
 def access_token_endpoint(
     request,
     lti_config_id=None,
