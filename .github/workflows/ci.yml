@@ -37,10 +37,3 @@ jobs:
         TOXENV: ${{ matrix.toxenv }}
       run: tox
 
-    - name: Run Coverage
-      if: matrix.python-version == '3.12' && matrix.toxenv=='django52'
-      uses: codecov/codecov-action@v5
-      with:
-        flags: unittests
-        fail_ci_if_error: true
-
