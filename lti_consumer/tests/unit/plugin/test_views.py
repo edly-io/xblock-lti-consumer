@@ -417,6 +417,28 @@ class TestLti1p3LaunchGateEndpoint(TestCase):
         # Check response
         self.assertEqual(response.status_code, 200)
 
+    def test_launch_callback_endpoint_deep_linking_by_global_staff(self):
+        """
+        Test that the callback endpoint allows deep linking launches for platform-wide staff.
+
+        Content Libraries v2 blocks run under the Learning Core XBlock runtime, which resolves
+        platform staff to the 'global_staff' role rather than 'instructor'/'staff'.
+        """
+        self._setup_deep_linking(user_role='global_staff')
+
+        params = {
+            "client_id": self.config.lti_1p3_client_id,
+            "redirect_uri": "http://tool.example/launch",
+            "state": "state_test_123",
+            "nonce": "nonce",
+            "login_hint": self.launch_data.user_id,
+            "lti_message_hint": self.launch_data_key,
+        }
+        response = self.client.get(self.url, params)
+
+        # Check response
+        self.assertEqual(response.status_code, 200)
+
     @ddt.data(True, False)
     def test_launch_callback_endpoint_deep_linking_database_config(self, dl_enabled):
         """
