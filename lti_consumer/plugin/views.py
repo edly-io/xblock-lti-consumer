@@ -356,7 +356,10 @@ def launch_gate_endpoint(request, suffix=None):  # pylint: disable=unused-argume
         if launch_data.message_type == 'LtiDeepLinkingRequest' and lti_consumer.dl:
             # Check if the user is staff before LTI doing deep linking launch.
             # If not, raise exception and display error page
-            if user_role not in ['instructor', 'staff']:
+            # 'global_staff' is included because Content Libraries v2 blocks run under the
+            # Learning Core XBlock runtime, which resolves platform-staff users to 'global_staff'
+            # rather than 'instructor'/'staff' (it doesn't do per-course/library role lookups).
+            if user_role not in ['instructor', 'staff', 'global_staff']:
                 raise AssertionError('Deep Linking can only be performed by instructors and staff.')
             # Set deep linking launch
             context.update({'launch_url': lti_consumer.dl.deep_linking_launch_url})
