@@ -106,6 +106,11 @@ class Command(BaseCommand):
             out.write(self.style.WARNING("Aborted at phase 1. No changes made.\n"))
             return
 
+        # Snapshot before phase 1 writes flip "pending" entries to "done" -- the
+        # activityid table below needs each component's LTI 1.1 state regardless
+        # of whether --apply already migrated it.
+        pre_migration_entries = entries
+
         # --- Step 4: phase 1 writes ------------------------------------------------------
         if apply_mode:
             entries = self._apply_phase_1(out, entries, user, env_cfg, state, state_path)
@@ -132,7 +137,7 @@ class Command(BaseCommand):
         report.print_state(out, state)
 
         # --- Step 6: phase 2 pre-flight, then confirm ------------------------------------
-        report.print_activityid_table(out, entries)
+        report.print_activityid_table(out, pre_migration_entries)
         report.print_courses_preflight(out, env, mode, courses, unreadable, apply_mode)
         if not options["yes"] and not report.confirm(out):
             out.write(self.style.WARNING("Aborted at phase 2. Phase 1 changes above stand.\n"))
