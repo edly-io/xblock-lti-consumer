@@ -94,6 +94,27 @@ def print_libraries_preflight(out, env, mode, search_term, org, libraries, apply
                            if apply_mode else "DRY-RUN -- nothing will be written."))
 
 
+def print_activityid_table(out, entries):
+    """
+    Print a lookup table of activityid -> LTI 1.1 library block, covering
+    every component Phase 1 has not yet migrated (``status == "pending"``).
+
+    The join between a course-side block and its library source is by
+    usage_key, which is not human-legible -- this table is what makes the
+    Phase 2 matches below it checkable at a glance instead of by memory.
+    """
+    pending = [entry for entry in entries if entry.get("status") == "pending"]
+    _line(out, "=== Activity ID -> LTI 1.1 Library Block ===")
+    if not pending:
+        _line(out, "(none -- no pending LTI 1.1 components)")
+        _line(out, "")
+        return
+    _line(out, f"{'activityid':<38}  {'library block':<55}  display_name")
+    for entry in pending:
+        _line(out, f"{entry['activityid']:<38}  {entry['usage_key']:<55}  {entry['display_name']}")
+    _line(out, "")
+
+
 def print_courses_preflight(out, env, mode, courses, unreadable, apply_mode):
     """
     Print the Phase 2 plan: which courses and blocks will be touched, and what
@@ -124,6 +145,7 @@ def print_courses_preflight(out, env, mode, courses, unreadable, apply_mode):
                 counts["pending"] = counts.get("pending", 0) + 1
                 _line(out, f"   {short:<14}  upstream={block['upstream_short']}  "
                            f"accept changes -> DL content (activityid={block['activityid']}) -> publish unit")
+            _line(out, json.dumps(block, indent=2, default=str))
 
     _line(out, "")
     _line(out, f"TOTAL: {len(courses)} courses, {total_blocks} blocks")

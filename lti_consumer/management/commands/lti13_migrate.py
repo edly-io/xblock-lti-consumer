@@ -132,6 +132,7 @@ class Command(BaseCommand):
         report.print_state(out, state)
 
         # --- Step 6: phase 2 pre-flight, then confirm ------------------------------------
+        report.print_activityid_table(out, entries)
         report.print_courses_preflight(out, env, mode, courses, unreadable, apply_mode)
         if not options["yes"] and not report.confirm(out):
             out.write(self.style.WARNING("Aborted at phase 2. Phase 1 changes above stand.\n"))

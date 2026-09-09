@@ -99,13 +99,27 @@ declines to proceed rather than treating "could not ask" as "yes".
 
 Production (Kubernetes)::
 
-    kubectl exec -it deployment/cms -- python manage.py cms lti13_migrate --mode test
-    kubectl exec -it deployment/cms -- python manage.py cms lti13_migrate --mode test --apply
+    kubectl exec -it deployment/cms -- python manage.py cms lti13_migrate --mode test --as-user <username>
+    kubectl exec -it deployment/cms -- python manage.py cms lti13_migrate --mode test --as-user <username> --apply
 
 Stage / dev (Tutor)::
 
-    docker exec -it tutor_local-cms-1 ./manage.py cms lti13_migrate --mode test
-    docker exec -it tutor_local-cms-1 ./manage.py cms lti13_migrate --mode test --apply
+    docker exec -it tutor_local-cms-1 python manage.py cms lti13_migrate --mode test --as-user <username>
+    docker exec -it tutor_local-cms-1 python manage.py cms lti13_migrate --mode test --as-user <username> --apply
+
+``--as-user`` is required: it is the username or email the run is attributed
+to, and which libraries/courses are even visible depends on that user's
+permissions.
+
+Must run under **CMS** (Studio), not LMS — the command's own module docstring
+says so, and it matters: ``MODULESTORE_BRANCH`` is ``draft-preferred`` under
+``manage.py cms`` but ``published-only`` under ``manage.py lms``. Phase 1
+(library side) goes through the Learning-Core ``content_libraries.api``,
+which ignores that setting entirely, so it happens to work fine from either
+app. Phase 2 (course side) calls ``modulestore().get_course_summaries()`` /
+``get_items()`` directly, which *is* gated by that setting — run from LMS,
+courses can silently come back empty even when the library is genuinely
+linked into several of them.
 
 Recommended rollout::
 

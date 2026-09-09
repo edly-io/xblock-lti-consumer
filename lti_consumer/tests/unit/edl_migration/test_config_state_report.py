@@ -168,6 +168,31 @@ class LibrariesPreflightTest(TestCase):
         self.assertIn("APPLY", self._print([], apply_mode=True))
 
 
+class ActivityIdTableTest(TestCase):
+    """The activityid -> LTI 1.1 library block table read alongside Phase 2's matches."""
+
+    def _print(self, entries):
+        out = io.StringIO()
+        report.print_activityid_table(out, entries)
+        return out.getvalue()
+
+    def test_lists_only_pending_components(self):
+        entries = [
+            {"usage_key": "lb:EDL:A:lti_consumer:one", "display_name": "One",
+             "activityid": "act-1", "status": "pending"},
+            {"usage_key": "lb:EDL:A:lti_consumer:two", "display_name": "Two",
+             "activityid": "act-2", "status": "skipped_already_migrated"},
+        ]
+        output = self._print(entries)
+        self.assertIn("act-1", output)
+        self.assertIn("lb:EDL:A:lti_consumer:one", output)
+        self.assertNotIn("act-2", output)
+
+    def test_reports_when_nothing_is_pending(self):
+        output = self._print([])
+        self.assertIn("none", output)
+
+
 class CoursesPreflightTest(TestCase):
     """The phase 2 pre-flight names conflicts, skips and unreadable courses."""
 
