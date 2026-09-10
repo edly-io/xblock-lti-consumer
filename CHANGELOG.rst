@@ -16,6 +16,16 @@ Please See the `releases tab <https://github.com/openedx/xblock-lti-consumer/rel
 Unreleased
 ~~~~~~~~~~
 
+* feat: add the ``lti13_migrate`` management command under ``lti_consumer.edl_migration``
+  (isolated from the general-purpose package) for EDL's Muzzy Lane LTI 1.1 -> 1.3 migration.
+  Phase 1 migrates a content library's ``lti_consumer`` components to Reusable Configuration
+  and constructs their deep-linking ``LtiDlContentItem`` directly from the ``activityid``
+  already present in LTI 1.1 ``custom_parameters``; phase 2 accepts the library changes on
+  every course-side synced copy and writes that copy's own content item, since library sync
+  never carries ``LtiDlContentItem``. Dry-run by default, with a pre-flight summary and
+  confirmation in front of each phase, a per-item read-back gate before every publish, and an
+  independent post-run verification that re-reads the published branch. See
+  ``lti_consumer/edl_migration/README.rst``.
 * Backport (Ulmo): pass context claim & use external config ``deployment_id`` in deep linking launch (PR #612; issues #611, #610).
 * Backport (Ulmo): AGS results endpoint trailing-slash compatibility, allow blank AGS score ``comment``, correct deep linking launch ``target_link_uri``, and use correct key/secret pair for LTI 1.1 grade passback (PR #643; issues #633, #628, #637, #620).
 * Backport (Ulmo): update LTI 1.3 launch and NRPS role mapping to use context role URIs, include supported forum roles like ``Community TA`` and ``Group Moderator`` in launches and NRPS membership responses, and add ADR documenting the updated role mapping behavior (PR #645).
