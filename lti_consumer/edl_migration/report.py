@@ -166,6 +166,78 @@ def print_courses_preflight(out, env, mode, courses, unreadable, apply_mode):
                            if apply_mode else "DRY-RUN -- nothing will be written."))
 
 
+def print_direct_courses_preflight(out, env, mode, course_keys, courses, unreadable, apply_mode):
+    """
+    Print the pre-flight plan for the direct-course migration: every course
+    fixed for --mode, and every lti_consumer block found in it that needs
+    work (or the reason it doesn't).
+
+    Unlike ``print_courses_preflight``, there is no "upstream library
+    component" to show per block -- these blocks were never linked to one --
+    and a course can legitimately contribute zero blocks or be unreadable, so
+    both are called out explicitly rather than silently vanishing from the
+    totals.
+    """
+    _line(out, "=== LTI 1.3 Migration (direct course blocks) - Pre-flight ===")
+    _line(out, f"Environment: {env}   Mode: {mode}")
+    _line(out, "")
+    _line(out, f"Courses in scope for --mode {mode}: {len(course_keys)}")
+    for course_id in course_keys:
+        _line(out, f"   {course_id}")
+    _line(out, "")
+
+    counts = {}
+    total_blocks = 0
+    _line(out, f"Courses with lti_consumer blocks found: {len(courses)}")
+    _line(out, "")
+    for course_id, blocks in courses.items():
+        _line(out, course_id)
+        total_blocks += len(blocks)
+        for block in blocks:
+            short = block["block_location"].rsplit(":", 1)[-1][:14]
+            counts[block["status"]] = counts.get(block["status"], 0) + 1
+            if block["status"] == "failed":
+                _line(out, f"   {short:<14}  CANNOT MIGRATE: {block['error']}")
+            elif block["status"] == "skipped_conflict":
+                _line(out, f"   {short:<14}  /!\\ CONFLICT: {block['error']}")
+            elif block["status"] == "skipped_already_migrated":
+                _line(out, f"   {short:<14}  already on 1.3 with matching DL content -- skip")
+            else:
+                _line(out, f"   {short:<14}  activityid={block['activityid']}  "
+                           f"flip fields -> DL content -> publish unit")
+            _line(out, json.dumps(block, indent=2, default=str))
+
+    _line(out, "")
+    _line(out, f"TOTAL: {len(courses)} courses, {total_blocks} lti_consumer blocks")
+    for status, count in sorted(counts.items()):
+        _line(out, f"         {count:>4}  {status}")
+
+    # Notes are "{course_key}: {exc}" -- a plain split(":", 1) would only ever
+    # return "course-v1", since every course key itself contains a colon, so
+    # membership is checked with the same "{course_key}:" prefix instead.
+    zero_block_courses = [
+        c for c in course_keys
+        if c not in courses and not any(note.startswith(f"{c}:") for note in unreadable)
+    ]
+    if zero_block_courses:
+        _line(out, "")
+        _line(out, f"/!\\ {len(zero_block_courses)} course(s) in scope had zero lti_consumer blocks:")
+        for course_id in zero_block_courses:
+            _line(out, f"      {course_id}")
+
+    if unreadable:
+        _line(out, "")
+        _line(out, f"/!\\ {len(unreadable)} course(s) could not be read and are NOT covered by the totals above:")
+        for note in unreadable:
+            _line(out, f"      {note}")
+
+    _line(out, "")
+    _line(out, "Note: publishing happens at the parent unit, so any *other* unpublished draft edit "
+               "in the same unit goes live too.")
+    _line(out, "Mode: " + ("APPLY -- changes WILL be written and published."
+                           if apply_mode else "DRY-RUN -- nothing will be written."))
+
+
 def print_state(out, state):
     """
     Dump the full state to stdout.

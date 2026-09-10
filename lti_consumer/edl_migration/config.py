@@ -24,6 +24,32 @@ MODE_SEARCH_TERMS = {
     "actual": "auto",
 }
 
+# Course keys in scope for the direct-course migration (lti13_migrate_direct)
+# -- lti_consumer blocks configured with LTI 1.1 straight in the course, no
+# content library involved. Unlike the library migration's MODE_SEARCH_TERMS,
+# these can't be discovered by a text search: LSU created one "parent" course
+# per auto-assessment family (9 total, confirmed by the user 2026-09-10, not
+# the 4 originally assumed), so the "actual" set is this fixed list of prod
+# course keys instead.
+DIRECT_MIGRATION_COURSES = {
+    "actual": [
+        "course-v1:LSU+EAA+LSU_parent_2607",
+        "course-v1:LSU+CAA+2607-LSU-CAA-Summer2026",
+        "course-v1:LSU+OCAA+2607",
+        "course-v1:LSU+SDLAA+LSU_parent_2607",
+        "course-v1:LSU+RAA+LSU_parent_2607",
+        "course-v1:LSU+IFAA+LSU_parent_2607",
+        "course-v1:LSU+IAA+LSU_parent_2607",
+        "course-v1:LSU+CPSAA+2607LSU",
+        "course-v1:LSU+CTAA+2607-LSU-CTAA-Summer2026",
+    ],
+    # Test course provided by the user 2026-09-10: apps.visibleskills.org/authoring/
+    # course/course-v1:EDL+Test02+2026
+    "test": [
+        "course-v1:EDL+Test02+2026",
+    ],
+}
+
 
 def detect_env():
     """

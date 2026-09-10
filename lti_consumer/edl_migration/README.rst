@@ -8,7 +8,14 @@ environment URLs. Nothing here is part of the plugin's public API.
 What it does
 ------------
 
-One management command, ``lti13_migrate``, in two phases:
+Two management commands, for two different content shapes:
+
+* ``lti13_migrate`` -- library-backed courses, in two phases (below).
+* ``lti13_migrate_direct`` -- the LSU parent courses, whose blocks are
+  configured with LTI 1.1 straight in the course with no library involved
+  (see its own section further down).
+
+``lti13_migrate``, in two phases:
 
 **Phase 1 — libraries.** For each ``lti_consumer`` component in a matched
 content library: capture the Muzzy Lane ``activityid`` from its LTI 1.1
@@ -56,6 +63,9 @@ Module layout
 ``library_ops.py``    Phase 1. Library components are Learning-Core-backed, so
                       they are edited as OLX text, not by field assignment.
 ``course_ops.py``     Phase 2. Course blocks are plain modulestore XBlocks.
+``direct_ops.py``     ``lti13_migrate_direct``'s single phase -- same field
+                      flip as Phase 1, applied straight to a course block,
+                      with no upstream library to sync from.
 ``verify.py``         Independent post-run verification, re-derived from
                       scratch — including a read of the **published** branch.
 ``report.py``         Pre-flight summaries, confirmation prompt, reports.
@@ -132,3 +142,36 @@ Recommended rollout::
 The full state is printed to stdout at the end of each phase. Keep it: the
 state *file* lives on the pod's ephemeral working directory and will not
 survive a restart.
+
+``lti13_migrate_direct`` -- courses with no library involved
+--------------------------------------------------------------
+
+The 9 LSU parent courses (one per auto-assessment family) were built with
+their ``lti_consumer`` blocks configured with LTI 1.1 straight in the course
+-- there is no content library upstream to sync from. ``lti13_migrate``
+cannot touch these (Phase 2 only ever migrates a block synced from a Phase 1
+library component), so they get their own command::
+
+    manage.py cms lti13_migrate_direct --mode {test,actual} --as-user <username> [--apply]
+
+It is the same field-level migration as Phase 1 above (``config_type`` /
+``external_config`` / ``lti_version`` / ``custom_parameters`` -> DL content ->
+verify -> publish), collapsed into a single phase since there is no "accept
+changes" step here. One pre-flight, one confirmation.
+
+``--mode actual`` is a **fixed list** of 9 prod course keys
+(``edl_migration.config.DIRECT_MIGRATION_COURSES["actual"]``), not a text
+search -- there is no name/slug pattern that reliably picks out exactly these
+9 courses. ``--mode test`` is a placeholder (currently empty) until the LSU
+test course keys are provided; the command refuses to run against an empty
+list rather than silently doing nothing. ``--course`` restricts a run to one
+course id already in that fixed set.
+
+Everything else -- the confirm-before-writing prompt, per-block gating
+(already migrated / conflict / failed to find an activityid), incremental
+state saves, and independent post-run verification against the published
+branch -- works exactly as described above, and reuses the same
+``content_items.py``, ``report.py``, ``state.py`` and ``verify.py`` modules.
+Its state file uses a distinct filename prefix (``lti13_direct_state_*``
+instead of ``lti13_state_*``) so a run of one command can never overwrite the
+other's state for the same env/mode.

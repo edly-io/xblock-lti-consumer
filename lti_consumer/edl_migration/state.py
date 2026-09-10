@@ -18,9 +18,15 @@ import os
 from django.core.management.base import CommandError
 
 
-def default_state_path(env, mode):
-    """Default state filename, including env so prod and stage cannot collide."""
-    return f"lti13_state_{env}_{mode}.json"
+def default_state_path(env, mode, prefix="lti13_state"):
+    """
+    Default state filename, including env so prod and stage cannot collide.
+
+    ``prefix`` distinguishes the two migration commands (library-backed vs.
+    direct-course) so that running both against the same env/mode does not
+    have one silently overwrite the other's state file.
+    """
+    return f"{prefix}_{env}_{mode}.json"
 
 
 def new_state(env, mode):

@@ -59,6 +59,14 @@ class StateFileTest(TestCase):
         self.assertEqual(state_module.default_state_path("prod", "actual"), "lti13_state_prod_actual.json")
         self.assertEqual(state_module.default_state_path("stage", "test"), "lti13_state_stage_test.json")
 
+    def test_default_path_honours_a_custom_prefix(self):
+        # lti13_migrate_direct uses its own prefix so it cannot collide with
+        # lti13_migrate's state file for the same env/mode.
+        self.assertEqual(
+            state_module.default_state_path("prod", "actual", prefix="lti13_direct_state"),
+            "lti13_direct_state_prod_actual.json",
+        )
+
     def test_missing_file_yields_a_fresh_stamped_state(self):
         state = state_module.load_state(self.path, "prod", "actual")
         self.assertEqual(state, {"env": "prod", "mode": "actual",
@@ -230,6 +238,68 @@ class CoursesPreflightTest(TestCase):
         output = self._print({})
         self.assertIn("unpublished draft edit", output)
         self.assertIn("has_score", output)
+
+
+class DirectCoursesPreflightTest(TestCase):
+    """The direct-course pre-flight names conflicts, zero-block courses, and unreadable ones."""
+
+    def _print(self, course_keys, courses, unreadable=(), apply_mode=True):
+        out = io.StringIO()
+        report.print_direct_courses_preflight(out, "prod", "actual", course_keys, courses, list(unreadable),
+                                               apply_mode)
+        return out.getvalue()
+
+    def test_describes_a_pending_block(self):
+        courses = {"course-v1:LSU+EAA+LSU_parent_2607": [{
+            "block_location": "block-v1:LSU+EAA+LSU_parent_2607+type@lti_consumer+block@abc",
+            "activityid": "act-1", "existing_activityid": None,
+            "conflict": False, "already_migrated": False, "status": "pending", "error": None,
+        }]}
+        output = self._print(["course-v1:LSU+EAA+LSU_parent_2607"], courses)
+        self.assertIn("activityid=act-1  flip fields -> DL content -> publish unit", output)
+        self.assertIn("1  pending", output)
+
+    def test_flags_a_conflicting_existing_content_item(self):
+        courses = {"course-v1:LSU+EAA+LSU_parent_2607": [{
+            "block_location": "block-v1:LSU+EAA+LSU_parent_2607+type@lti_consumer+block@abc",
+            "activityid": "act-1", "existing_activityid": "other",
+            "conflict": True, "already_migrated": False, "status": "skipped_conflict",
+            "error": "custom_parameters declares act-1, existing DL content points at other -- left untouched",
+        }]}
+        output = self._print(["course-v1:LSU+EAA+LSU_parent_2607"], courses)
+        self.assertIn("CONFLICT", output)
+        self.assertIn("1  skipped_conflict", output)
+
+    def test_flags_a_course_with_zero_lti_consumer_blocks(self):
+        # A course in scope that simply has no lti_consumer blocks must not
+        # silently vanish from the report -- it is a real, checkable gap.
+        output = self._print(["course-v1:LSU+EAA+LSU_parent_2607", "course-v1:LSU+CAA+2607-LSU-CAA-Summer2026"], {})
+        self.assertIn("2 course(s) in scope had zero lti_consumer blocks", output)
+        self.assertIn("course-v1:LSU+EAA+LSU_parent_2607", output)
+
+    def test_a_course_with_blocks_is_not_also_reported_as_zero_blocks(self):
+        courses = {"course-v1:LSU+EAA+LSU_parent_2607": [{
+            "block_location": "block-v1:LSU+EAA+LSU_parent_2607+type@lti_consumer+block@abc",
+            "activityid": "act-1", "existing_activityid": None,
+            "conflict": False, "already_migrated": False, "status": "pending", "error": None,
+        }]}
+        output = self._print(["course-v1:LSU+EAA+LSU_parent_2607"], courses)
+        self.assertNotIn("zero lti_consumer blocks", output)
+
+    def test_reports_unreadable_courses_outside_the_totals_and_not_as_zero_blocks(self):
+        # A course key containing its own ":" must not be mistaken for one
+        # with zero blocks just because a naive prefix split gets confused.
+        output = self._print(
+            ["course-v1:LSU+EAA+LSU_parent_2607"], {},
+            unreadable=["course-v1:LSU+EAA+LSU_parent_2607: mongo said no"],
+        )
+        self.assertIn("NOT covered by the totals", output)
+        self.assertIn("mongo said no", output)
+        self.assertNotIn("zero lti_consumer blocks", output)
+
+    def test_states_which_mode_it_is_running_in(self):
+        self.assertIn("DRY-RUN", self._print([], {}, apply_mode=False))
+        self.assertIn("APPLY", self._print([], {}, apply_mode=True))
 
 
 class VerificationReportTest(TestCase):
