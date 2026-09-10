@@ -19,10 +19,20 @@ Unreleased
 9.14.7 - 2026-09-10
 -------------------
 * Backport (Ulmo): publish AGS scores with a ``scoreGiven`` of ``0`` to the LMS
-  gradebook (issue #695). The grade publishing signal tested ``scoreGiven`` for
-  truthiness, so a valid zero score was treated as a missing one and never
-  reached the gradebook. ``LtiAgsScore`` model validation had the same bug and
-  accepted a zero ``scoreGiven`` with no ``scoreMaximum``.
+  gradebook (issue #695; upstream PR #701). The grade publishing signal tested
+  ``scoreGiven`` for truthiness, so a valid zero score was treated as a missing
+  one and never reached the gradebook.
+* Backport (Ulmo): reject a ``scoreMaximum`` that is unset or not positive whenever
+  ``scoreGiven`` is present, in both ``LtiAgsScore.clean()`` and the AGS score
+  serializer. Both had the same truthiness bug, and a ``scoreMaximum`` of ``0`` is
+  not a usable denominator: it could be saved through the ORM or admin, was then
+  silently skipped by the publishing signal, yet was still reported as a successful
+  result by ``LtiAgsResultSerializer``.
+* Backport (Ulmo): report an LTI 1.1 ``module_score`` of ``0`` from the result
+  service instead of omitting it, which reported a learner scored zero as ungraded.
+* Backport (Ulmo): log the reason a grade publish was skipped -- grading progress,
+  resource link id, score given/maximum, and the block's ``has_score``/past-due
+  state -- instead of only ever logging a successful publish.
 
 9.14.6 - 2026-08-20
 -------------------
