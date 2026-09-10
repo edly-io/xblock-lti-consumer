@@ -16,7 +16,16 @@ Please See the `releases tab <https://github.com/openedx/xblock-lti-consumer/rel
 Unreleased
 ~~~~~~~~~~
 
+9.14.7 - 2026-09-10
+-------------------
+* Backport (Ulmo): publish AGS scores with a ``scoreGiven`` of ``0`` to the LMS
+  gradebook (issue #695). The grade publishing signal tested ``scoreGiven`` for
+  truthiness, so a valid zero score was treated as a missing one and never
+  reached the gradebook. ``LtiAgsScore`` model validation had the same bug and
+  accepted a zero ``scoreGiven`` with no ``scoreMaximum``.
+
 9.14.6 - 2026-08-20
+-------------------
 -------------------
 * Backport (Ulmo): allow programmatic AGS line-item creation using ``resource_link_id`` when ``resource_id`` is absent (PR #609; issue #605).
   The ``resource_link_id`` URL-encoding half of PR #609 is intentionally omitted: it belongs to PR #607, which upstream reverted in PR #623.
