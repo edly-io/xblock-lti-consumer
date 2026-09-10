@@ -18,9 +18,9 @@ library component to sync from. So this is a single phase:
 Read-only unless ``--apply`` is passed, same as ``lti13_migrate``.
 
 ``--mode actual`` is fixed to the 9 LSU parent courses (see
-``edl_migration.config.DIRECT_MIGRATION_COURSES``); ``--mode test`` is a
-placeholder list, empty until the test course keys are provided. ``--course``
-restricts a run to one course id within that fixed set, for a staged rollout.
+``edl_migration.config.DIRECT_MIGRATION_COURSES``); ``--mode test`` currently
+covers one course, ``course-v1:EDL+Test02+2026``. ``--course`` restricts a
+run to one course id within that fixed set, for a staged rollout.
 
 See lti_consumer/edl_migration/README.rst for the full runbook.
 """

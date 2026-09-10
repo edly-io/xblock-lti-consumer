@@ -194,7 +194,11 @@ def print_direct_courses_preflight(out, env, mode, course_keys, courses, unreada
         _line(out, course_id)
         total_blocks += len(blocks)
         for block in blocks:
-            short = block["block_location"].rsplit(":", 1)[-1][:14]
+            # A course block location has only one ":" (right after
+            # "block-v1"), so rsplit(":", 1) would return almost the whole
+            # key -- split on the last "@" instead, which isolates the actual
+            # distinguishing usage id (e.g. "...+block@abc123" -> "abc123").
+            short = block["block_location"].rsplit("@", 1)[-1][:14]
             counts[block["status"]] = counts.get(block["status"], 0) + 1
             if block["status"] == "failed":
                 _line(out, f"   {short:<14}  CANNOT MIGRATE: {block['error']}")

@@ -12,6 +12,16 @@ XBlock with typed fields -- reading ``block.custom_parameters`` already
 returns a Python list, not the JSON-encoded OLX attribute string
 ``library_ops.py`` has to parse -- so this edits fields directly via
 ``store.update_item`` rather than an lxml OLX round trip.
+
+Both "is this already migrated" (``fields_migrated``) and "did the write
+actually stick" (``fields_ok``) check ``external_config`` in addition to
+``config_type``/``lti_version``. ``course_ops.py`` doesn't need to -- there,
+``external_config`` arrives via ``sync_from_upstream_block`` from the library,
+a field this module never touches directly. Here there is no upstream to sync
+from: ``migrate_course_block`` sets ``external_config`` itself, so a block
+with the right ``config_type``/``lti_version`` but a stale or wrong
+``external_config`` (e.g. migrated once against the wrong environment) must
+not read as "done".
 """
 from opaque_keys.edx.keys import CourseKey, UsageKey
 from xmodule.modulestore.django import modulestore  # pylint: disable=import-error
@@ -72,7 +82,8 @@ def discover_course_blocks(course_keys, env_cfg):
         for block in blocks:
             fields_migrated = (
                 getattr(block, "config_type", None) == MIGRATED_CONFIG_TYPE and
-                getattr(block, "lti_version", None) == MIGRATED_LTI_VERSION
+                getattr(block, "lti_version", None) == MIGRATED_LTI_VERSION and
+                getattr(block, "external_config", None) == f"lti_store:{env_cfg['lti_store_slug']}"
             )
             # Two possible sources for the activityid, same priority order as
             # library_ops.inspect_component: custom_parameters (the LTI 1.1
@@ -123,7 +134,11 @@ def discover_course_blocks(course_keys, env_cfg):
             matched.append(entry)
 
         if matched:
-            courses[str(course_key)] = matched
+            # Keyed by the original config string, not str(course_key): the
+            # pre-flight's "zero blocks found" check compares this dict's keys
+            # against that same config list, and a re-serialized CourseKey is
+            # only guaranteed to match it byte-for-byte, not required to.
+            courses[course_key_str] = matched
 
     return courses, unreadable
 
@@ -145,6 +160,10 @@ def migrate_course_block(block_entry, user, env_cfg):
     # overwrite a possibly real, picker-produced selection either.
     if block_entry["conflict"]:
         result["status"] = "skipped_conflict"
+        result["error"] = (
+            f"existing DL content points at {block_entry['existing_activityid']}, "
+            f"declared activityid is {block_entry['activityid']} -- left untouched"
+        )
         return result
 
     store = modulestore()
@@ -165,7 +184,8 @@ def migrate_course_block(block_entry, user, env_cfg):
     fresh_block = store.get_item(location)
     fields_ok = (
         getattr(fresh_block, "config_type", None) == MIGRATED_CONFIG_TYPE and
-        getattr(fresh_block, "lti_version", None) == MIGRATED_LTI_VERSION
+        getattr(fresh_block, "lti_version", None) == MIGRATED_LTI_VERSION and
+        getattr(fresh_block, "external_config", None) == f"lti_store:{env_cfg['lti_store_slug']}"
     )
     content_ok = content_items.read_activityid(location) == block_entry["activityid"]
 

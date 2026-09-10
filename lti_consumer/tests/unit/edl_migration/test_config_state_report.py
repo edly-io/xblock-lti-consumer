@@ -301,6 +301,21 @@ class DirectCoursesPreflightTest(TestCase):
         self.assertIn("DRY-RUN", self._print([], {}, apply_mode=False))
         self.assertIn("APPLY", self._print([], {}, apply_mode=True))
 
+    def test_distinguishes_multiple_blocks_in_the_same_course(self):
+        # A course block location has only one ":", unlike a library usage
+        # key -- the short label must split on "@" (the usage id), not ":",
+        # or every block in a course would print the same truncated prefix.
+        course_id = "course-v1:LSU+EAA+LSU_parent_2607"
+        courses = {course_id: [
+            {"block_location": f"block-v1:LSU+EAA+LSU_parent_2607+type@lti_consumer+block@{suffix}",
+             "activityid": f"act-{suffix}", "existing_activityid": None,
+             "conflict": False, "already_migrated": False, "status": "pending", "error": None}
+            for suffix in ("aaa111", "bbb222")
+        ]}
+        output = self._print([course_id], courses)
+        self.assertIn("aaa111", output)
+        self.assertIn("bbb222", output)
+
 
 class VerificationReportTest(TestCase):
     """Failures are always listed individually, never just counted."""

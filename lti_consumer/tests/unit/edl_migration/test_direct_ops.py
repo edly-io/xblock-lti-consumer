@@ -24,7 +24,8 @@ BLOCK = "block-v1:LSU+EAA+LSU_parent_2607+type@lti_consumer+block@abc123"
 VERTICAL = "block-v1:LSU+EAA+LSU_parent_2607+type@vertical+block@unit1"
 
 
-def _course_block(config_type="new", lti_version="lti_1p1", custom_parameters=None, display_name="ASSESSMENT: X"):
+def _course_block(config_type="new", lti_version="lti_1p1", custom_parameters=None, display_name="ASSESSMENT: X",
+                   external_config="lti_store:author13"):
     """Build a course-side lti_consumer block double, configured directly (no upstream)."""
     block = mock.Mock(spec=["location", "config_type", "lti_version", "custom_parameters",
                              "display_name", "get_parent", "external_config"])
@@ -33,6 +34,7 @@ def _course_block(config_type="new", lti_version="lti_1p1", custom_parameters=No
     block.lti_version = lti_version
     block.custom_parameters = custom_parameters if custom_parameters is not None else [f"activityid={ACTIVITY}"]
     block.display_name = display_name
+    block.external_config = external_config
     return block
 
 
@@ -73,6 +75,22 @@ class DiscoverCourseBlocksTest(TestCase):
         self.assertTrue(entry["already_migrated"])
         self.assertEqual(entry["status"], "skipped_already_migrated")
         self.assertFalse(entry["conflict"])
+
+    def test_a_stale_external_config_is_not_already_migrated(self):
+        # config_type/lti_version alone are not enough: external_config is
+        # written directly here (unlike course_ops.py, where it's inherited
+        # via Accept Changes), so a block migrated once against a different
+        # lti_store_slug must be repaired, not skipped as already done.
+        dl_content = content_items.build_dl_content("ASSESSMENT: X", ACTIVITY, PROD_CFG)
+        content_items.write_content_item(UsageKey.from_string(BLOCK), dl_content, PROD_CFG)
+        courses, _ = self._discover([_course_block(
+            config_type="external", lti_version="lti_1p3", custom_parameters=[],
+            external_config="lti_store:muzzylane",
+        )])
+        entry = courses[COURSE_ID][0]
+        self.assertFalse(entry["fields_migrated"])
+        self.assertFalse(entry["already_migrated"])
+        self.assertEqual(entry["status"], "pending")
 
     def test_a_block_on_1p3_with_no_content_is_not_skipped(self):
         # Fields alone are not "done" -- a block left in this state by a
@@ -127,11 +145,13 @@ class MigrateCourseBlockTest(TestCase):
             "error": None,
         }
 
-    def _store(self, fresh_config_type="external", fresh_lti_version="lti_1p3", parent=True):
+    def _store(self, fresh_config_type="external", fresh_lti_version="lti_1p3",
+               fresh_external_config="lti_store:author13", parent=True):
         """Build a modulestore double: first get_item is the draft, second the post-write read."""
         store = mock.MagicMock()
         draft = _course_block()
-        fresh = _course_block(config_type=fresh_config_type, lti_version=fresh_lti_version)
+        fresh = _course_block(config_type=fresh_config_type, lti_version=fresh_lti_version,
+                               external_config=fresh_external_config)
         if parent:
             parent_block = mock.Mock()
             parent_block.location = UsageKey.from_string(VERTICAL)
@@ -157,6 +177,7 @@ class MigrateCourseBlockTest(TestCase):
         with mock.patch.object(direct_ops, "modulestore", return_value=store):
             result = direct_ops.migrate_course_block(self.entry, self.user, PROD_CFG)
         self.assertEqual(result["status"], "skipped_conflict")
+        self.assertIn("some-other-activity", result["error"])
         store.get_item.assert_not_called()
         store.update_item.assert_not_called()
         store.publish.assert_not_called()
@@ -184,6 +205,12 @@ class MigrateCourseBlockTest(TestCase):
 
     def test_does_not_publish_when_the_fields_did_not_actually_save(self):
         result, store = self._migrate(self._store(fresh_lti_version="lti_1p1"))
+        self.assertEqual(result["status"], "failed_verification")
+        self.assertIn("publish skipped", result["error"])
+        store.publish.assert_not_called()
+
+    def test_does_not_publish_when_external_config_did_not_actually_save(self):
+        result, store = self._migrate(self._store(fresh_external_config="lti_store:muzzylane"))
         self.assertEqual(result["status"], "failed_verification")
         self.assertIn("publish skipped", result["error"])
         store.publish.assert_not_called()

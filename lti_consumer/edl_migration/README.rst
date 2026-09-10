@@ -162,10 +162,10 @@ changes" step here. One pre-flight, one confirmation.
 ``--mode actual`` is a **fixed list** of 9 prod course keys
 (``edl_migration.config.DIRECT_MIGRATION_COURSES["actual"]``), not a text
 search -- there is no name/slug pattern that reliably picks out exactly these
-9 courses. ``--mode test`` is a placeholder (currently empty) until the LSU
-test course keys are provided; the command refuses to run against an empty
-list rather than silently doing nothing. ``--course`` restricts a run to one
-course id already in that fixed set.
+9 courses. ``--mode test`` currently covers one course,
+``course-v1:EDL+Test02+2026`` -- and the command refuses to run rather than
+silently doing nothing if that list is ever emptied out again. ``--course``
+restricts a run to one course id already in that fixed set.
 
 Everything else -- the confirm-before-writing prompt, per-block gating
 (already migrated / conflict / failed to find an activityid), incremental
