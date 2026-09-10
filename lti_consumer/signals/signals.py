@@ -44,9 +44,11 @@ def publish_grade_on_score_update(sender, instance, **kwargs):  # pylint: disabl
     # 1. The grade being submitted in the final one - `FullyGraded`
     # 2. This LineItem is linked to a LMS grade - the `LtiResouceLinkId` field is set
     # 3. There's a valid grade in this score - `scoreGiven` is set
+    #    Note: a `scoreGiven` of 0 is a valid grade, so this must be an explicit
+    #    `is not None` check rather than a truthiness one.
     if instance.grading_progress == LtiAgsScore.FULLY_GRADED \
             and line_item.resource_link_id \
-            and instance.score_given:
+            and instance.score_given is not None:
         try:
             # Load block using LMS APIs and check if the block is graded and still accept grades.
             block = compat.load_block_as_user(line_item.resource_link_id)

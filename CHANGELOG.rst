@@ -16,6 +16,14 @@ Please See the `releases tab <https://github.com/openedx/xblock-lti-consumer/rel
 Unreleased
 ~~~~~~~~~~
 
+9.16.1 - 2026-09-10
+-------------------
+* Publish AGS scores with a ``scoreGiven`` of ``0`` to the LMS gradebook. The
+  grade publishing signal tested ``scoreGiven`` for truthiness, so a valid zero
+  score was treated as a missing one and never reached the gradebook.
+* Require ``scoreMaximum`` when ``scoreGiven`` is ``0``, which the ``LtiAgsScore``
+  model validation skipped for the same reason.
+
 9.16.0 - 2026-08-27
 -------------------
 * Add pagination support to the NRPS ``/context_membership`` endpoint, accepting

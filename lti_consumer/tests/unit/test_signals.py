@@ -98,3 +98,65 @@ class PublishGradeOnScoreUpdateTest(TestCase):
         self._block_mock.set_user_module_score.assert_called_once()
         self._compat_mock.get_user_from_external_user_id.assert_called_once()
         self._compat_mock.load_block_as_user.assert_called_once()
+
+    def test_grade_publish_with_zero_score(self):
+        """
+        Test that a `scoreGiven` of zero is published to the LMS gradebook.
+
+        A zero is a valid grade, so it must not be skipped the way a missing
+        `scoreGiven` is.
+        """
+        line_item = LtiAgsLineItem.objects.create(
+            lti_configuration=self.lti_config,
+            resource_id="test",
+            resource_link_id=self.location,
+            label="test label",
+            score_maximum=100
+        )
+
+        LtiAgsScore.objects.create(
+            line_item=line_item,
+            score_given=0,
+            score_maximum=100,
+            activity_progress=LtiAgsScore.COMPLETED,
+            grading_progress=LtiAgsScore.FULLY_GRADED,
+            user_id="test",
+            timestamp=datetime.now(),
+        )
+
+        # Check that the grade is published, and that it is published as a zero.
+        self._compat_mock.load_block_as_user.assert_called_once()
+        self._compat_mock.get_user_from_external_user_id.assert_called_once()
+        self._block_mock.set_user_module_score.assert_called_once_with(
+            self._compat_mock.get_user_from_external_user_id.return_value,
+            0.0,
+            self._block_mock.max_score.return_value,
+            None,
+        )
+
+    def test_grade_publish_not_done_when_score_given_is_null(self):
+        """
+        Test that a score without a `scoreGiven` is not published to the LMS gradebook.
+        """
+        line_item = LtiAgsLineItem.objects.create(
+            lti_configuration=self.lti_config,
+            resource_id="test",
+            resource_link_id=self.location,
+            label="test label",
+            score_maximum=100
+        )
+
+        LtiAgsScore.objects.create(
+            line_item=line_item,
+            score_given=None,
+            score_maximum=None,
+            activity_progress=LtiAgsScore.COMPLETED,
+            grading_progress=LtiAgsScore.FULLY_GRADED,
+            user_id="test",
+            timestamp=datetime.now(),
+        )
+
+        # Check that methods to save grades are not called
+        self._block_mock.set_user_module_score.assert_not_called()
+        self._compat_mock.get_user_from_external_user_id.assert_not_called()
+        self._compat_mock.load_block_as_user.assert_not_called()
